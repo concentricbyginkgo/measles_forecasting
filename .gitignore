@@ -1,0 +1,7 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+
+# large, raw data files
+./data_ingestion_pipeline/local_data/
