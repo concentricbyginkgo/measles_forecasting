@@ -10,6 +10,11 @@ library(haven)
 working_drive <- "~/measles_forecasting"
 setwd(working_drive)
 
+# Create directory to write processed data
+if(!dir.exists("data_ingestion_pipeline/processed_data/")){
+  dir.create("data_ingestion_pipeline/processed_data/")
+}
+
 ## NOTE: data in local_data/ are not included in repo (due to size constraints)
 ## and need to be downloaded manually. Update any paths to the location
 ## you stash these data files.
@@ -43,7 +48,7 @@ setcolorder(mar, c("ISO3", "country", "Year"))
 
 ###########################
 ## State Capacity Scores https://statecapacityscores.org/the-data/ (national level pulled on 5/9/2023)
-national_myers <- as.data.table(read_dta(social_dat_drive, "national_myers.dta"))
+national_myers <- as.data.table(read_dta(paste0(social_dat_drive, "national_myers.dta")))
 national_myers[, ISO3 := countrycode::countrycode(sourcevar = countryname, origin = "country.name", destination = "iso3c")]
 setnames(national_myers, "year", "Year")
 national_myers <- national_myers[, .(ISO3, Year, Series = "myers", value = myers)]

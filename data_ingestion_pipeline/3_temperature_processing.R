@@ -22,6 +22,11 @@ library(parallel)
 working_drive <- "~/measles_forecasting/"
 setwd(working_drive)
 
+# Create directory to write processed data
+if(!dir.exists("data_ingestion_pipeline/processed_data/")){
+  dir.create("data_ingestion_pipeline/processed_data/")
+}
+
 # 2) Download (manual step) 
 ## NOTE: data in local_data/ are not included in repo (due to size constraints)
 ## and need to be downloaded manually. Update any paths to the location
@@ -96,21 +101,23 @@ extract_tmax <- function(temp_path_in, results_path_out, year,
   var_dat[, .N, by = .(parallel_id)]
   # write to file and return data
   if(tolower(write_to_file) == "yes"){
-    results_path_year <- paste0(results_path_out, "/", year, "/")
-    fwrite(var_dat, paste0(results_path_year, "_", grp, ".csv"))
+    results_path_year <- paste0(results_path_out, "tmax/", year, "/")
+    if(!dir.exists(results_path_year)){
+      dir.create(results_path_year, recursive = T)
+    }
+    fwrite(var_dat, paste0(results_path_year, "extracted_tmax", year,".csv"))
   }
   return(var_dat)
 }
 
-
+# this is a memory-intensive step
 temp_table_dat <- extract_tmax(temp_path_in = "data_ingestion_pipeline/local_data/t_max/",
-                               results_path_out = "data_ingestion_pipeline/processed_data/tmax/",
+                               results_path_out = "data_ingestion_pipeline/processed_data/",
                                year = 2011, num_parallel_groups = 200, write_to_file = "yes")
 
 # 5) Geocode temperature data
 
 worldmap <- getMap(resolution='low') # map used for geocoding
-
 # get_country: function to geocode temperature data to country
 ## dat: the temperature data table (created in step 5)
 ## grp: the parallel_id created above; cuts data table into smaller chunks
@@ -118,7 +125,7 @@ worldmap <- getMap(resolution='low') # map used for geocoding
 
 get_country <- function(dat, grp, out_location){
   dat_grp <- dat[parallel_id == grp, ]
-  sp::coordinates(dat_grp) <- ~ lon2 + lat
+  sp::coordinates(dat_grp) <- ~ lon + lat
   proj4string(dat_grp) <- proj4string(worldmap)
   world_over <- data.table(over(dat_grp, worldmap))
   dat_grp <- data.table(dat_grp@data, dat_grp@coords)
@@ -126,9 +133,12 @@ get_country <- function(dat, grp, out_location){
   fwrite(out_dat, paste0(out_location, "tmax_", grp, ".csv"))
   return(out_dat)
 }
-# test a single group
-get_country(dat = temp_table_dat, grp = 1,
-            out_location = "data_ingestion_pipeline/processed_data/")
+
+# # test a single group
+# a <- Sys.time()
+# d2 <- get_country(dat = temp_table_dat, grp = 1,
+#             out_location = "data_ingestion_pipeline/processed_data/tmax/")
+# Sys.time() - a
 
 detectCores() # To decide how many cores to distribute job over
 # X corresponds to grp; may need to update if you updated parallel_id in data table

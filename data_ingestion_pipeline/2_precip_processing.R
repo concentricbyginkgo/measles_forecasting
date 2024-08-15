@@ -17,6 +17,11 @@ library(parallel)
 working_drive <- "~/measles_forecasting/"
 setwd(working_drive)
 
+# Create directory to write processed data
+if(!dir.exists("data_ingestion_pipeline/processed_data/")){
+  dir.create("data_ingestion_pipeline/processed_data/")
+}
+
 # 2) Download (manual step) and read in raw data
 ## NOTE: data in local_data/ are not included in repo (due to size constraints)
 ## and need to be downloaded manually. Update any paths to the location
@@ -104,6 +109,7 @@ compile_data <- function(grp, out_location){
 
 precip_dat_iso2 <- rbindlist(lapply(compile_data, X = 1:10))
 precip_dat_iso2[Name == "Namibia", ISO2 := "NA"]
+
 # If you want to write the data before taking the mean value by country, do it now
 #fwrite(precip_dat_iso2, "data_ingestion_pipeline/processed_data/compiled_precip_iso2.csv")
 

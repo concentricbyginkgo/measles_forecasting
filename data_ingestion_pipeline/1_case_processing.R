@@ -10,6 +10,11 @@ library(readxl)
 working_drive <- "~/measles_forecasting"
 setwd(working_drive)
 
+# Create directory to write processed data
+if(!dir.exists("data_ingestion_pipeline/processed_data/")){
+  dir.create("data_ingestion_pipeline/processed_data/")
+}
+
 # 2) Download (manual step) and read in raw data
 ## NOTE: data in local_data/ are not included in repo (due to size constraints)
 ## and need to be downloaded manually. Update any paths to the location
