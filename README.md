@@ -10,14 +10,14 @@ Note that `2_precip_processing.R` and `3_temperature_processing.R` extract and g
 
 ## Forecasting model
 
-The forecasting model is run in Python.
+The forecasting model is run in Python via Jupyter Lab.
 
 ### Environment Setup
 You'll most likely want to run this in a mamba python 3.11 environment via the miniforge distribution from here: 
 
 [Miniforge Github](https://github.com/conda-forge/miniforge)
 
-*nix users:
+*nix users installation:
 ```
 $ curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
 $ bash Miniforge3-$(uname)-$(uname -m).sh
@@ -31,15 +31,15 @@ $ mamba activate bmgf
 $ jupyter lab
 ```
 
-The method has been tested on OSX:x86 and OSX:arm64.
+This method has been tested on OSX:x86 and OSX:arm64.
 
 ### Basic Usage
-There are presently two ways you can run this model, neither of which is necessarily better depending on your goals. Both methods withhold the last twelve months of case and predictor data, project the predictor data forward, estimate the case data from it, then evaluate the results.
+There are presently two intended ways you can run this model: via analysis notebooks or the a command line interface (CLI). Neither method is necessarily better depending on your goals. Both methods default to withholding the last twelve months of case and predictor data, project the predictor data forward, estimate the case data from it, and then evaluate the results.
 
 ### Notebook Usage
-If you run analyses within the analysis notebooks, you can access all of the functions of the wrapper class and tweak and tune runs as desired. The only substantive difference between the notebooks at present is how the code is partitioned, so the "WithCode" notebook would be useful if you want to look and understand how things work or even poke around a bit in a temporary copy.
+If you run analyses within the inclded analysis notebooks ([TTSEvalWithCode.ipynb](forecast_model/TTSEvalWithCode.ipynb) and [TTSEval.ipynb](forecast_model/TTSEval.ipynb)) you can access all of the functions of the wrapper class and tweak and tune runs as desired. The only substantive difference between the notebooks at present is whether the model evaluation code is included directly or loaded via a separate module. The "WithCode" notebook may be useful if you want to look and understand how things work or even poke around a bit in a temporary copy.
 
-The notebook approach would be specifically useful if there were any additional Scikit-Learn modules you'd want to evaluate. The caveat of this method is that as many of those Scikit-Learn modules are the product of granular research projects, version conflicts and similar edge cases within them may crash the notebook's python kernel. This doesn't cause any significant problems outside of the analysis, but it may break set and forget usage for large sweeps. The result of each analysis is a python dict, analogous to a json. It is trivial to bundle these and save locally like so:
+The notebook approach would be specifically useful if there were any additional Scikit-Learn modules you'd want to evaluate. The caveat of this method is that as many of those Scikit-Learn modules are the product of granular research projects, version conflicts and similar edge cases may crash the notebook's python kernel. This doesn't cause any significant problems outside of the analysis, but it may break set and forget usage for large variable sweeps. The result of each analysis is a python dict, analogous to a json. It is trivial to bundle these and save locally like so:
 
 ```
 import pandas as pd
@@ -86,7 +86,7 @@ Results:
  'withheld': 12}
 ```
 
-Whichever way you run an analysis, they all use the same data loader, MeaslesDataLoader.py, which loads `model_training_data.csv`.
+Whichever way you run an analysis, they all use the same data loader, MeaslesDataLoader.py, which loads `model_training_data.csv` unless an alternate file is passed.
 
 ### Plumbing Considerations
 Some of these ML models are a bit slow to train. Likewise, NeuralProphet is at present used in every model to forecast predictor variables into the future no matter which ML wrapper class you use for the case data. This makes a fair bit of sense for environmental predictors like rain and temperature, less so for anything particularly social, granular, or stochastic. In either case, for any unique experiment you run, the unique setup variables and raw data of that experiment are hashed as part of the memoization framework. The code dictating this process is as follows:
