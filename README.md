@@ -13,28 +13,33 @@ Note that `2_precip_processing.R` and `3_temperature_processing.R` extract and g
 The forecasting model is run in Python.
 
 ### Environment Setup
-You'll most likely want to run this in a miniconda python environment via conda from here: 
+You'll most likely want to run this in a mamba python 3.11 environment via the miniforge distribution from here: 
 
-`https://docs.conda.io/projects/conda/en/latest/user-guide/install/macos.html`
+[Miniforge Github](https://github.com/conda-forge/miniforge)
 
-Once installed, you can open a new terminal tab or rerun `~/.bashrc` to access conda. To get started, you'll want to create a conda environment for this, install a couple libraries, switch to that environment, then open jupyter lab. That will look something like this via bash prompt:
+*nix users:
+```
+$ curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
+$ bash Miniforge3-$(uname)-$(uname -m).sh
+```
+
+Once installed, you can open a new terminal tab or run `bash ~/.bashrc` to access mamba. To get started, you'll want to create a mamba environment for this with the required libraries, switch to that environment, and then open jupyter lab. This may be done via the following bash prompts:
 
 ```
-$ conda create -n "nameofchoice" python=3.9.0 jupyterlab pandas neuralprophet scikit-learn seaborn matplotlib plotly
-$ conda activate nameofchoice
-$ conda install nameofmissinglibrary
+$ mamba create -n bmgf neuralprophet scikit-learn statsmodels jupyterlab pandas numpy osmnx geopandas multiprocess matplotlib statsmodels scipy country_converter seaborn matplotlib==3.8.3
+$ mamba activate bmgf
 $ jupyter lab
 ```
 
-This is probably going to be the most frustrating part, and is roughly guaranteed to not work on the first try due to some nebulous clash between the ML libraries, some underlying library, and some other library that was required but that didn’t get installed by the ML libraries. Generally, things go best if you install the heavier external libraries first with conda.
+The method has been tested on OSX:x86 and OSX:arm64.
 
 ### Basic Usage
-There are two ways you can run this, neither is necessarily better depending on your goals. Both methods withhold the last twelve months of case and predictor data, project the predictor data forward, estimate the case data from it, then evaluate the results.
+There are presently two ways you can run this model, neither of which is necessarily better depending on your goals. Both methods withhold the last twelve months of case and predictor data, project the predictor data forward, estimate the case data from it, then evaluate the results.
 
 ### Notebook Usage
-If you run analyses within the primary or deprecated notebook, you can access all of the functions of the wrapper class and tweak and tune as desired. The only difference at present between the notebooks is how the code is partitioned, so the deprecated notebook would be great if you want to look and understand how things work or even poke around a bit in a temporary copy.
+If you run analyses within the analysis notebooks, you can access all of the functions of the wrapper class and tweak and tune runs as desired. The only substantive difference between the notebooks at present is how the code is partitioned, so the "WithCode" notebook would be useful if you want to look and understand how things work or even poke around a bit in a temporary copy.
 
-The notebook approach would be specifically useful if there were any additional Scikit-Learn modules you'd want to evaluate. The caveat of this method is that a lot of those Scikit-Learn modules are the product of hacky research projects, so some of them will ungracefully crash the notebook's python kernel. This doesn't cause any significant problems outside of the analysis, but it breaks set and forget usage for large sweeps. The result of each analysis is a python dict, analogous to a json. It's very easy to bundle these and save locally like so:
+The notebook approach would be specifically useful if there were any additional Scikit-Learn modules you'd want to evaluate. The caveat of this method is that as many of those Scikit-Learn modules are the product of granular research projects, version conflicts and similar edge cases within them may crash the notebook's python kernel. This doesn't cause any significant problems outside of the analysis, but it may break set and forget usage for large sweeps. The result of each analysis is a python dict, analogous to a json. It is trivial to bundle these and save locally like so:
 
 ```
 import pandas as pd
@@ -55,8 +60,6 @@ Usage is like so:
 
 ```
 % python MeaslesModelEval.py nplagged Nigeria cases_1M "{'total_precip_mm_per_day':9}" test.json
-Importing plotly failed. Interactive plots will not work.
-Importing plotly failed. Interactive plots will not work.
 82/194 included countries found with noted outbreaks.
 
 Initializing...
@@ -83,14 +86,14 @@ Results:
  'withheld': 12}
 ```
 
-Whichever way you run an analysis, they all use the same data loader, MeaslesDataLoader.py, which loads `model_training_data.csv`. If you want to load in new data, you'll need to do two things:
+Whichever way you run an analysis, they all use the same data loader, MeaslesDataLoader.py, which loads `model_training_data.csv`.
 
 ### Plumbing Considerations
 Some of these ML models are a bit slow to train. Likewise, NeuralProphet is at present used in every model to forecast predictor variables into the future no matter which ML wrapper class you use for the case data. This makes a fair bit of sense for environmental predictors like rain and temperature, less so for anything particularly social, granular, or stochastic. In either case, for any unique experiment you run, the unique setup variables and raw data of that experiment are hashed as part of the memoization framework. The code dictating this process is as follows:
 
 
 ```
-self.hash = hashIt((self.curve,
+self.hash = hashIt((self.curve.to_csv(),
 		    testSize,
 		    randomState,
 		    self.features,
@@ -101,10 +104,10 @@ self.hash = hashIt((self.curve,
 ```
 For each predictor projection or model training run, all of the pertinent class variables will be pickled and stored to a file such as store/{self.hash}.pkl. However, if you change the code after that hash or change library versions, you may induce errors and inconsistencies here. In that case, simply delete the contents of store/ and rerun the experiments. You could even identify the hash from a specific initiated TTS run and delete runs a la carte. Each pickled ML training model is typically 1-4MB, so space could potentially become any issue with larger experiments.
 
-If you are interacting with the code directly in python, you can access and experiment with any of the data within the class object, denoted by self.{attribute}. There is also a method in the notebooks for plotting NeuralProphet TTS runs, though I haven’t yet generalized this to work with the Scikit-Learn data. Usage and output is as follows:
+If you are interacting with the code directly in python, you can access and experiment with any of the data within the class object, denoted by self.{attribute}. There is also a method in the notebooks for plotting trained TTS runs. Usage and output is as follows:
 
 ```
-neuralRun = mm.npLaggedTTS('Nigeria',
+neuralRun = mm.npLaggedTTS('NGA',
                           'cases_1M',
                           indepVars = {'total_precip_mm_per_day':3},
                           testSize = 12)
