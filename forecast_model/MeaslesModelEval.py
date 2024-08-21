@@ -35,8 +35,16 @@ import EpiPreprocessor as ep
 warnings.simplefilter(action='ignore', category=FutureWarning)
 set_log_level("ERROR")
 
-preppedCountries = md.prepData()
+preppedCountries = md.prepData('../model_training_data.csv')
 
+expectedDirectories = ['input',
+                       'ouput',
+                       'output/figures',
+                       'store']
+
+for directory in expectedDirectories:
+    if not os.path.exists(directory):
+        os.makedirs(directory)
     
     
 ##########################################
