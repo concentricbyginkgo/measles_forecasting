@@ -59,7 +59,7 @@ You can also run these experiments via the CLI, in which case the Scikit-Learn g
 Usage is like so:
 
 ```
-% python MeaslesModelEval.py nplagged Nigeria cases_1M "{'total_precip_mm_per_day':9}" test.json
+% python MeaslesModelEval.py nplagged NGA cases_1M "{'total_precip_mm_per_day':9}" test.json
 82/194 included countries found with noted outbreaks.
 
 Initializing...
