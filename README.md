@@ -1,6 +1,14 @@
 # measles_forecasting
 AI-enabled measles forecasting
 
+Overview of the steps for running the model:
+1. Run scripts in `data_ingestion_pipeline/` (scripts 1-5)
+2. Run `data_ingestion_pipeline/` (script 6)
+3. Set up python environment
+4. Run the forecast model (`forecast_model/TTSEvalWithCode.ipynb` or `forecast_model/TTSEval.ipynb`
+
+Details on these steps are found below.
+
 ## Data ingestion pipeline
 The data ingestion pipeline contains scripts to process raw case and predictor data to a clean, consistent format for model fitting. All processing is done in R. The processed model data are provided, but the pipeline can be used to re-create, or refresh the provided processed dataset. Be advised that the processing of the gridded, temporal climate data is extremely compute and memory heavy. 
 
