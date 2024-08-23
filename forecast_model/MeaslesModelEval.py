@@ -27,15 +27,24 @@ from matplotlib import pyplot as plt
 from neuralprophet import NeuralProphet, set_log_level, set_random_seed
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, HistGradientBoostingRegressor
+from sklearn.ensemble import GradientBoostingRegressor
 
 import MeaslesDataLoader as md
+import EpiPreprocessor as ep
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 set_log_level("ERROR")
 
-preppedCountries = md.prepData()
+preppedCountries = md.prepData('../model_training_data.csv')
 
+expectedDirectories = ['input',
+                       'ouput',
+                       'output/figures',
+                       'store']
+
+for directory in expectedDirectories:
+    if not os.path.exists(directory):
+        os.makedirs(directory)
     
     
 ##########################################
@@ -43,28 +52,56 @@ preppedCountries = md.prepData()
 ##########################################
 
 
-def prepCurve(df,
+def prepCurve(dfIn,
+              modelName,
               depVar,
-              indepVars):
+              indepVars,
+              configURL,
+              additionalPrep = {}):
     """Prepares one curve df, paring out all unnecessary attributes"""
+    # Loads preprocessor config and merges manual args
+    df = dfIn.copy(True)
+    config = ep.getGoogleSheetConfig(configURL)
+    for column,methods in additionalPrep.items():
+        try:
+            config[column] += methods
+        except:
+            config[column] = methods
+
+    # Pare down df to only needed and present vars
+    indepVars = {key:duration for key,duration in indepVars.items() if key in df.columns}
+    indepVars = {key:duration for key,duration in indepVars.items() if len(df[key].dropna()) > 0}
+    df = df[['ds',depVar]+list(indepVars.keys())]
+
+    # Apply lagged regressors
+    if modelName != 'NeuralProphet lagged regressors':
+        for key,duration in indepVars.items():
+            df.loc[:,key] = df[key].shift(duration).tolist()
+
+    # Apply preprocessor
+    df,preprocessorLog = ep.preprocessDf(df,config)
+
     df.rename({depVar:'y'},
                axis=1,
                inplace = True)
-
-    indepVars = {key:duration for key,duration in indepVars.items() if key in df.columns}
-    indepVars = {key:duration for key,duration in indepVars.items() if len(df[key].dropna()) > 0}
-    df = df[['ds','y']+list(indepVars.keys())]
-    df = df.dropna(subset=['y'],axis=0)
     
-    return df,indepVars
+    return df, indepVars, preprocessorLog
+
 
 
 def hashIt(var):
     """Returns an md5 hash from an arbitrary variable"""
-    
+    varStr = f'{var}'.encode('utf-8')
     md5_hash_obj = hashlib.md5()
-    md5_hash_obj.update(str(var).encode('utf-8'))
+    md5_hash_obj.update(varStr)
     return md5_hash_obj.hexdigest()
+
+
+def sortDict(dictIn):
+    """Returns dict contents in predictable order"""
+    return dict(sorted(dictIn.items()))
+
+
 
 
 ##########################################
@@ -78,7 +115,6 @@ def alignEvalData(original,predicted):
                            'predicted':predicted}).dropna()
     
     return merged.original, merged.predicted
-
 
 
 def evaluateModel(trained):
@@ -105,10 +141,10 @@ def evaluateModel(trained):
     return result
 
 
-
 def plotTTS(simObject):
     """Quick plotting function for TTS objects"""
-    forecast = simObject.trained['forecast'].copy(deep=True)
+
+    forecast = simObject.finalDf
     withheld = simObject.curve[-simObject.testSize:].copy(deep=True)
     withheld.rename({'y':'withheld'},
                     axis = 1,
@@ -129,7 +165,8 @@ def plotTTS(simObject):
     plt.xlabel("Month/Year")
     plt.ylabel(simObject.depVar)
     plt.title(f"{simObject.country} {simObject.depVar} vs predictors {simObject.features}\nMethod: {simObject.method}")
-    
+    plt.savefig(f'output/figures/{simObject.hash}.png')
+
 
 ##########################################
 ###   PREDICTOR PROJECTIONS METHODS    ###
@@ -147,7 +184,7 @@ def projectPredictor(dfIn,
     df = dfIn[['ds',var]].copy(deep=True)
     df.columns = ['ds','y']
 
-    hash = hashIt((df,
+    hash = hashIt((df.to_csv(index=False),
                    var,
                    periods,
                    forcePositive,
@@ -159,7 +196,7 @@ def projectPredictor(dfIn,
     if os.path.exists(cacheFile):
         with open(cacheFile, 'rb') as fileIn:
             predictor = pickle.load(fileIn)
-        return predictor
+        return predictor[-periods:]
 
     
     if method == 'NeuralProphet autoregression':
@@ -179,10 +216,78 @@ def projectPredictor(dfIn,
     with open(cacheFile, 'wb') as fileOut:
         pickle.dump(result, fileOut, protocol=pickle.HIGHEST_PROTOCOL)
 
-    return result
+    return result[-periods:]
+    
+
+############################################################
+###  CROSS MODEL INIT AND SUMMARY FUNCTIONS              ###
+############################################################
 
 
+def initModel(simObject,
+              country,
+              depVar,
+              indepVars,
+              projectionMethod,
+              testSize,
+              randomState,
+              preprocessor,
+              additionalPrep,
+              modelArgs):
+    """Generalized model initiation across wrappers"""
+    curve = preppedCountries[country].copy(deep=True)
+    indepVars = sortDict(indepVars)
+    simObject.country = country
+    simObject.depVar = depVar
+    simObject.curve, simObject.indepVars, simObject.preprocessorLog = prepCurve(curve,
+                                                                                simObject.method,
+                                                                                depVar,
+                                                                                indepVars,
+                                                                                preprocessor,
+                                                                                additionalPrep)
 
+    simObject.modelArgs = modelArgs
+    simObject.features = indepVars
+    simObject.varKeys = sorted(list(simObject.indepVars.keys()))
+    
+    simObject.testSize = testSize
+    simObject.randomState = randomState
+    simObject.trainDf, simObject.testDf  = train_test_split(simObject.curve,
+                                                  shuffle = False,
+                                                  test_size = simObject.testSize)
+    simObject.projection = projectionMethod
+    simObject.hash = hashIt((simObject.curve.to_csv(index=False),
+                        testSize,
+                        randomState,
+                        simObject.features,
+                        simObject.method,
+                        simObject.projection,
+                        simObject.modelArgs,
+                        simObject.preprocessorLog))
+
+    simObject.xTrain = simObject.trainDf[simObject.varKeys].values
+    simObject.yTrain = simObject.trainDf['y'].values
+    simObject.xTest = simObject.testDf[simObject.varKeys].values
+    simObject.yTest = simObject.testDf['y'].values
+
+    simObject.trained = None
+    simObject.yTestPred = None
+    simObject.yTrainPred = None
+    simObject.results = None
+
+
+def standardizeOutput(simObject):
+    """Rerturns one output table format for all wrapper"""
+    if simObject.method.startswith('NeuralProphet'):
+        forecast = simObject.trained['forecast'].copy(deep=True)
+        
+    if simObject.method.startswith('Scikit-learn'):
+        forecast = pd.DataFrame(simObject.trained['forecast'])
+        forecast.columns = ['yhat1']
+        forecast.loc[:,'ds'] = simObject.curve['ds'].values
+        forecast.loc[:,'y'] = simObject.curve['y'].values
+
+    simObject.finalDf = forecast.merge(simObject.curve,how='left')
 
 
 ############################################################
@@ -197,45 +302,26 @@ class npLaggedTTS:
                  indepVars,
                  projectionMethod = 'NeuralProphet autoregression',
                  testSize = 12,
-                 randomState = 1337):
+                 randomState = 1337,
+                 preprocessor = ep.tempConfigURL,
+                 additionalPrep = dict()):
         """
         Initialize the model parameters
         """
-        curve = preppedCountries[country].copy(deep=True)
-        self.country = country
-        self.depVar = depVar
-        self.curve, self.indepVars = prepCurve(curve,
-                                               depVar,
-                                               indepVars)
 
-        self.modelArgs = dict()
-        self.features = indepVars
-        varKeys = sorted(list(self.indepVars.keys()))
-        
-        self.testSize = testSize
-        self.randomState = randomState
-        self.trainDf, self.testDf  = train_test_split(self.curve,
-                                                      shuffle = False,
-                                                      test_size = self.testSize)
         self.method = 'NeuralProphet lagged regressors'
-        self.projection = projectionMethod
-        self.hash = hashIt((self.curve,
-                            testSize,
-                            randomState,
-                            self.features,
-                            self.method,
-                            self.projection,
-                            self.modelArgs))
 
-        self.xTrain = self.trainDf[varKeys].values
-        self.yTrain = self.trainDf['y'].values
-        self.xTest = self.testDf[varKeys].values
-        self.yTest = self.testDf['y'].values
+        initModel(self,
+                  country,
+                  depVar,
+                  indepVars,
+                  projectionMethod,
+                  testSize,
+                  randomState,
+                  preprocessor,
+                  additionalPrep,
+                  dict())
 
-        self.trained = None
-        self.yTestPred = None
-        self.yTrainPred = None
-        self.results = None
 
     def train(self):
         """
@@ -253,12 +339,16 @@ class npLaggedTTS:
             model = NeuralProphet()
             
             for indepVar,delay in self.indepVars.items():
-                model.add_lagged_regressor(indepVar, n_lags=delay)
+                print(indepVar,delay)
+                if delay != 0:
+                    model.add_lagged_regressor(indepVar, n_lags=delay)
+                else:
+                    model.add_future_regressor(indepVar)
                 
             metrics = model.fit(self.trainDf,
                                 freq='M')
 
-
+            toMerge = pd.DataFrame(columns=['ds'])
             if self.features == dict():
                 future = model.make_future_dataframe(self.trainDf,
                                                      periods=self.testSize,
@@ -271,14 +361,18 @@ class npLaggedTTS:
                                                  self.testSize,
                                                  method = self.projection,
                                                  randomState = self.randomState)
-                    future = future.merge(predictor,how='outer')
+                    toMerge = toMerge.merge(predictor,how='outer')
+
+            future = pd.concat([future,toMerge],
+                                    axis=0,
+                                    ignore_index=True)
             
             forecast = model.predict(future)
             result = {'train':self.trainDf,
                       'metrics':metrics,
-                      'future':future,
                       'forecast':forecast,
-                      'model':model,}
+                      'model':model,
+                      'future':future}
     
             with open(cacheFile, 'wb') as fileOut:
                 pickle.dump(result, fileOut, protocol=pickle.HIGHEST_PROTOCOL)
@@ -287,7 +381,7 @@ class npLaggedTTS:
 
         self.yTestPred = self.trained['forecast']['yhat1'][-self.testSize:].values
         self.yTrainPred = self.trained['forecast']['yhat1'][:-self.testSize].values
-
+        standardizeOutput(self)
     
 
     def evaluate(self):
@@ -296,7 +390,6 @@ class npLaggedTTS:
         """
         if self.trained is None:
             raise ValueError("Model has not been trained yet, call that first.")
-
 
         results = evaluateModel(self)
         modelParams = {'method':self.method,
@@ -309,9 +402,6 @@ class npLaggedTTS:
 
         results.update(modelParams)
         return results
-
-
-
 
 
 ############################################################
@@ -326,45 +416,27 @@ class npFutureTTS:
                  indepVars,
                  projectionMethod = 'NeuralProphet autoregression',
                  testSize = 12,
-                 randomState = 1337):
+                 randomState = 1337,
+                 preprocessor = ep.tempConfigURL,
+                 additionalPrep = dict()):
         """
         Initialize the model parameters
         """
-        curve = preppedCountries[country].copy(deep=True)
-        self.depVar = depVar
-        self.country = country
-        self.curve, self.indepVars = prepCurve(curve,
-                                               depVar,
-                                               indepVars)
-
-        self.modelArgs = dict()
-        self.features = sorted(list(self.indepVars.keys()))
         
-        self.testSize = testSize
-        self.randomState = randomState
-        self.trainDf, self.testDf  = train_test_split(self.curve,
-                                                      shuffle = False,
-                                                      test_size = self.testSize)
         self.method = 'NeuralProphet future regressors'
-        self.projection = projectionMethod
-        self.hash = hashIt((self.curve,
-                            testSize,
-                            randomState,
-                            self.features,
-                            self.method,
-                            self.projection,
-                            self.modelArgs))
 
-        self.xTrain = self.trainDf[self.features].values
-        self.yTrain = self.trainDf['y'].values
-        self.xTest = self.testDf[self.features].values
-        self.yTest = self.testDf['y'].values
+        initModel(self,
+                  country,
+                  depVar,
+                  indepVars,
+                  projectionMethod,
+                  testSize,
+                  randomState,
+                  preprocessor,
+                  additionalPrep,
+                  dict())
 
-        self.trained = None
-        self.yTestPred = None
-        self.yTrainPred = None
-        self.results = None
-
+    
     def train(self):
         """
         Trains the model, loading from cache if previously trained
@@ -380,14 +452,13 @@ class npFutureTTS:
         else:
             model = NeuralProphet()
             
-            
             for indepVar,delay in self.indepVars.items():
                 model.add_future_regressor(indepVar)
 
             metrics = model.fit(self.trainDf,
                                 freq='M')
 
-
+            toMerge = pd.DataFrame(columns=['ds'])
             if self.features == []:
                 future = model.make_future_dataframe(self.trainDf,
                                                      periods=self.testSize,
@@ -400,8 +471,11 @@ class npFutureTTS:
                                                  self.testSize,
                                                  method = self.projection,
                                                  randomState = self.randomState)
-                    future = future.merge(predictor,how='outer')
-        
+                    toMerge = toMerge.merge(predictor,how='outer')
+                    
+            future = pd.concat([future,toMerge],
+                               axis=0,
+                               ignore_index=True)
             
             forecast = model.predict(future)
             result = {'train':self.trainDf,
@@ -417,8 +491,8 @@ class npFutureTTS:
 
         self.yTestPred = self.trained['forecast']['yhat1'][-self.testSize:].values
         self.yTrainPred = self.trained['forecast']['yhat1'][:-self.testSize].values
+        standardizeOutput(self)
 
-    
 
     def evaluate(self):
         """
@@ -426,7 +500,6 @@ class npFutureTTS:
         """
         if self.trained is None:
             raise ValueError("Model has not been trained yet, call that first.")
-
 
         results = evaluateModel(self)
         modelParams = {'method':self.method,
@@ -439,8 +512,6 @@ class npFutureTTS:
 
         results.update(modelParams)
         return results
-
-
 
         
         
@@ -456,45 +527,27 @@ class sklGradientBoostingRegression:
                  indepVars,
                  projectionMethod = 'NeuralProphet autoregression',
                  testSize = 12,
-                 randomState = 1337):
+                 randomState = 1337,
+                 preprocessor = ep.tempConfigURL,
+                 additionalPrep = dict()):
         """
         Initialize the model parameters
         """
-        curve = preppedCountries[country].copy(deep=True)
-        self.depVar = depVar
-        self.country = country
-        self.curve, self.indepVars = prepCurve(curve,
-                                               depVar,
-                                               indepVars)
-
-        self.modelArgs = dict()
-        self.features = sorted(list(self.indepVars.keys()))
         
-        self.testSize = testSize
-        self.randomState = randomState
-        self.trainDf, self.testDf  = train_test_split(self.curve,
-                                                      shuffle = False,
-                                                      test_size = self.testSize)
         self.method = 'Scikit-learn gradient boosted regression'
-        self.projection = projectionMethod
-        self.hash = hashIt((self.curve,
-                            testSize,
-                            randomState,
-                            self.features,
-                            self.method,
-                            self.projection,
-                            self.modelArgs))
 
-        self.xTrain = self.trainDf[self.features].values
-        self.yTrain = self.trainDf['y'].values
-        self.xTest = self.testDf[self.features].values
-        self.yTest = self.testDf['y'].values
+        initModel(self,
+                  country,
+                  depVar,
+                  indepVars,
+                  projectionMethod,
+                  testSize,
+                  randomState,
+                  preprocessor,
+                  additionalPrep,
+                  dict())
 
-        self.trained = None
-        self.yTestPred = None
-        self.yTrainPred = None
-        self.results = None
-
+    
     def train(self):
         """
         Trains the model, loading from cache if previously trained
@@ -516,16 +569,20 @@ class sklGradientBoostingRegression:
                 raise ValueError("Model cannot be trained without one or more independent variables.")
             else:
                 future = self.trainDf.copy(deep=True)
+                toMerge = pd.DataFrame(columns=['ds'])
                 for indepVar,delay in self.indepVars.items():
                     predictor = projectPredictor(self.trainDf,
                                                  indepVar,
                                                  self.testSize,
                                                  method = self.projection,
                                                  randomState = self.randomState)
-                    future = future.merge(predictor,how='outer')
+                    toMerge = toMerge.merge(predictor,how='outer')
 
+            future = pd.concat([future,toMerge],
+                               axis=0,
+                               ignore_index=True)
             
-            forecast = model.predict(future[self.features].values)
+            forecast = model.predict(future[sorted(list(self.features.keys()))].values)
             
             result = {'train':self.trainDf,
                       'future':future,
@@ -539,7 +596,7 @@ class sklGradientBoostingRegression:
 
         self.yTestPred = self.trained['forecast'][-self.testSize:]
         self.yTrainPred = self.trained['forecast'][:-self.testSize]
-
+        standardizeOutput(self)
     
 
     def evaluate(self):
@@ -548,7 +605,6 @@ class sklGradientBoostingRegression:
         """
         if self.trained is None:
             raise ValueError("Model has not been trained yet, call that first.")
-
 
         results = evaluateModel(self)
         modelParams = {'method':self.method,
@@ -561,8 +617,6 @@ class sklGradientBoostingRegression:
 
         results.update(modelParams)
         return results
-
-
 
 
 
@@ -579,45 +633,27 @@ class sklGeneric:
                  projectionMethod = 'NeuralProphet autoregression',
                  testSize = 12,
                  randomState = 1337,
-                 modelArgs = dict()):
+                 modelArgs = dict(),
+                 preprocessor = ep.tempConfigURL,
+                 additionalPrep = dict()):
         """
         Initialize the model parameters
         """
-        curve = preppedCountries[country].copy(deep=True)
-        self.depVar = depVar
-        self.country = country
-        self.curve, self.indepVars = prepCurve(curve,
-                                               depVar,
-                                               indepVars)
-
-        self.features = sorted(list(self.indepVars.keys()))
         
-        self.testSize = testSize
-        self.randomState = randomState
-        self.trainDf, self.testDf  = train_test_split(self.curve,
-                                                      shuffle = False,
-                                                      test_size = self.testSize)
         self.method = f'Scikit-learn generic: {modelArgs["modelName"]}'
-        self.modelArgs = modelArgs
-        self.projection = projectionMethod
-        self.hash = hashIt((self.curve,
-                            testSize,
-                            randomState,
-                            self.features,
-                            self.method,
-                            self.projection,
-                            self.modelArgs))
+        
+        initModel(self,
+                  country,
+                  depVar,
+                  indepVars,
+                  projectionMethod,
+                  testSize,
+                  randomState,
+                  preprocessor,
+                  additionalPrep,
+                  modelArgs)
 
-        self.xTrain = self.trainDf[self.features].values
-        self.yTrain = self.trainDf['y'].values
-        self.xTest = self.testDf[self.features].values
-        self.yTest = self.testDf['y'].values
-
-        self.trained = None
-        self.yTestPred = None
-        self.yTrainPred = None
-        self.results = None
-
+    
     def train(self):
         """
         Trains the model, loading from cache if previously trained
@@ -631,25 +667,28 @@ class sklGeneric:
                 self.trained = pickle.load(fileIn)
         
         else:
-            print(self.modelArgs)
             model = self.modelArgs['model'](random_state=self.randomState)
             model.fit(self.xTrain, self.yTrain)
 
-
+            
             if self.features == []:
                 raise ValueError("Model cannot be trained without one or more independent variables.")
             else:
                 future = self.trainDf.copy(deep=True)
+                toMerge = pd.DataFrame(columns=['ds'])
                 for indepVar,delay in self.indepVars.items():
                     predictor = projectPredictor(self.trainDf,
                                                  indepVar,
                                                  self.testSize,
                                                  method = self.projection,
                                                  randomState = self.randomState)
-                    future = future.merge(predictor,how='outer')
+                    toMerge = toMerge.merge(predictor,how='outer')
 
+            future = pd.concat([future,toMerge],
+                               axis=0,
+                               ignore_index=True)
             
-            forecast = model.predict(future[self.features].values)
+            forecast = model.predict(future[sorted(list(self.features.keys()))].values)
             
             result = {'train':self.trainDf,
                       'future':future,
@@ -663,16 +702,15 @@ class sklGeneric:
 
         self.yTestPred = self.trained['forecast'][-self.testSize:]
         self.yTrainPred = self.trained['forecast'][:-self.testSize]
+        standardizeOutput(self)
 
     
-
     def evaluate(self):
         """
         Returns evaluation data
         """
         if self.trained is None:
             raise ValueError("Model has not been trained yet, call that first.")
-
 
         results = evaluateModel(self)
         modelParams = {'method':self.method,

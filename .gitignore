@@ -5,3 +5,6 @@
 
 # large, raw data files
 data_ingestion_pipeline/local_data/
+forecast_model/lightning_logs
+forecast_model/store
+forecast_model/__pycache__
