@@ -1,0 +1,635 @@
+---
+title: "Model Comparison Visualizations"
+author: ""
+output: 
+  flexdashboard::flex_dashboard:
+    css: ./www/style.css
+    favicon: ./www/favicon.png
+    theme: lumen
+    vertical_layout: scroll
+    # orientation: rows
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(shiny)
+library(knitr)
+library(zoo)
+library(data.table)
+library(bit64)
+library(plotly)
+library(ggplot2)
+
+library(highcharter)
+library(flexdashboard)
+library(formattable)
+library(shinyWidgets)
+library(DT)
+library(RColorBrewer)
+library(shiny)
+library(kableExtra)
+
+
+library(jsonlite)
+options(scipen = 999)
+opts_chunk$set(echo = TRUE)
+
+# !!! UPDATE the directories
+base_output_dir <- "~/measles_forecasting/model_comparison_pipeline/"
+summary_output_folder <- "summary_output/" # output directory containing compiled model summary statistic output
+country_output_folder <- "country_output/" # output directory containing time series output for each modeled country
+
+summaryTable <- fread(paste0(base_output_dir, summary_output_folder, "summaryTable.csv"), na.strings = "")
+
+shinyDat <- copy(summaryTable)
+
+shinyDat[, country := countrycode::countrycode(sourcevar = ISO3, destination = "country.name", origin = "iso3c")]
+methods <- sort(unique(shinyDat$method))
+shinyDat[, method := factor(method, levels = methods)]
+shinyDat[, predictor_lag := as.character(predictor_lag)] # had to make a character to fix offset issue
+lags <- sort(unique(shinyDat$predictor_lag))
+shinyDat[, predictor_lag := factor(predictor_lag, levels = lags)]
+# remove binary predictors
+shinyDat <- shinyDat[!(predictor %in% c("outbreak_20_per_M", "outbreak_2_per_M", "outbreak_20_cuml_per_M")), ]
+
+shinyDat <- shinyDat[order(ISO3, Test_MSE)]
+
+country_list <- sort(summaryTable[, unique(ISO3)])
+names(country_list) <- paste0(country_list, " - ", countrycode::countrycode(country_list, 'iso3c', 'country.name'))
+country_list <- c(country_list, "All countries" = "all")
+```
+
+
+Sidebar {.sidebar}
+=====================================
+### Selections
+
+```{r, echo = F}
+selectInput("COUNTRY", label = "Select Country (All Countries available for Binary Outcome Analysis tab only)",
+            choices = country_list, selected = "AFG")
+
+selectInput("MODEL_VARS", label = "Test Metrics Tab - Heatmap: Select model vars",
+            choices = shinyDat[, unique(model_vars)], selected = "MCV1_Cov_1yo")
+
+numericInput("N", label = "Test Metrics & Segment Tab - Number of runs in top/bottom groups",
+             value = 3, min = 1)
+
+
+radioButtons("BINARY_DATASET", "Binary outcome analysis - dataset", choices = c("Full" = "full", "Test" = "test"), selected = "full")
+
+radioButtons("BINARY_OUTBREAK_THRESH", "Binary outcome analysis - outbreak threshold", choices = c("20 cases per M", "2 cases per M", "20 cuml cases per M"), selected = "20 cases per M")
+
+numericInput("BINARY_IDX", label = "Binary outcome analysis - Run Index",
+             value = NULL, min = 1)
+
+```
+
+
+Test Metrics
+=====================================
+
+
+### Top Model vars - sorted by Test MSE
+
+```{r, echo = FALSE}
+
+
+get_top_runs <- reactive({
+  country_meta <- summaryTable[country == input$COUNTRY]
+  
+  index_variables <- c("parameters", "index")
+  assessment_variables <- c("Test MSE", "Test MAE", "Test R2", "Train MSE", "Train MAE", "Train R2")
+  assessment_table <- country_meta[order(-`Test MSE`)][, .SD, .SDcols = c(assessment_variables, index_variables)]
+  
+  top10 <- assessment_table[1:10]
+  return(top10)
+})
+
+
+country_metrics <- reactive({
+  shinyDat_iso3 <- shinyDat[ISO3 == input$COUNTRY]
+  
+  return(shinyDat_iso3)
+})
+
+renderDataTable({
+  
+  country_metrics()[, .(Test_MSE = round(mean(Test_MSE), 4)) ,keyby = .(model_vars)][order(Test_MSE)]
+}, options = list(lengthMenu = list(c(5, 10, -1), c('5', '10', 'All')),
+                  pageLength = 5))
+
+```
+
+### Heatmap of method and model vars
+
+```{r, echo = FALSE}
+
+renderPlot({
+  model_inputs <- input$MODEL_VARS
+  ggplot(shinyDat[ISO3 == input$COUNTRY & model_vars == model_inputs], 
+         aes(x = predictor_lag, y = method, fill = Test_MSE)) + geom_tile(color = "black")+ 
+    scale_x_discrete(limits = lags) + scale_y_discrete(limits = methods)+
+    ggtitle(model_inputs)+ theme(title = element_text(size = 8))
+  
+  
+})
+
+
+```
+
+### Plot of lowest N Test MSE models
+
+```{r, echo = FALSE}
+
+renderPlotly({
+  
+  N <- input$N
+  if(length(N) == 0){
+    fig <- plot_ly()%>% layout(
+      title = list(text = "Enter integer greater than 0 for number of top runs", x = 0)
+    )
+    fig
+  }else if(N == ""| is.na(N) | N <= 0){
+    fig <- plot_ly()%>% layout(
+      title = list(text = "Enter integer greater than 0 for number of top runs", x = 0)
+    )
+    fig
+  }else{
+    lowest_N <- shinyDat[, head(.SD, N), by = .(ISO3)]
+    lowest_N[, spec := paste0(method,"\n ", model_vars,"\n", predictor_lag)]
+    
+    ggplotly(ggplot(lowest_N[ISO3 == input$COUNTRY]) + 
+               geom_bar(aes(x= reorder(spec, Test_MSE), y = Test_MSE), stat = "identity")+
+               theme(axis.text.x = element_text(size = 7)) + xlab("Model spec")+ theme(axis.text.x = element_text(angle = 30, vjust = 0.5, hjust=1)))
+    
+  }
+  
+  
+  
+})
+
+
+```
+
+
+
+
+
+Segment
+=====================================
+
+### Model parameters heatmap
+
+```{r, echo = FALSE}
+
+order_data <- reactive({
+  R_dat <- shinyDat[ISO3 == input$COUNTRY, .(ISO3, Test_MSE, Train_MSE, method, predictor, predictor_lag, index, sensitivity_2M, specificity_2M, sensitivity_20M, specificity_20M, sensitivity_20cM, specificity_20cM)]
+  
+  setorder(R_dat, "Test_MSE")
+  R_dat[, order := 1:.N]
+  R_dat[, rev_order := .N:1]
+  return(R_dat)
+  
+})
+
+
+renderPlot({
+  
+  R_dat <- order_data()
+  N = input$N
+  
+  if(length(N) == 0){
+    ggplot() +
+      theme_void() +
+      geom_text(aes(0,0,label='Enter integer greater than 0 for number of runs in top and bottom groups'))
+  }else if(N == ""| is.na(N) | N <=0){
+    ggplot() +
+      theme_void() +
+      geom_text(aes(0,0,label='Enter integer greater than 0 for number of runs in top and bottom groups'))
+  }else{
+    
+    top_ones <- R_dat[order %in% 1:N]
+    bottom_ones <- R_dat[rev_order %in% 1:N]
+    melted_top_dat <- suppressWarnings(as.data.table(melt(top_ones, id.vars = "order", measure.vars = c("method", "predictor", "predictor_lag"))))
+    
+    top_dat_freq <- melted_top_dat[, .N , keyby = .(variable, value)]
+    top_dat_freq[, perc := N/sum(N), keyby = .(variable)]
+    top_dat_freq[, group := "top"]
+    
+    melted_bottom_dat <- suppressWarnings(as.data.table(melt(bottom_ones, id.vars = "order", measure.vars = c("method", "predictor", "predictor_lag"))))
+    
+    bottom_dat_freq <- melted_bottom_dat[, .N , keyby = .(variable, value)]
+    bottom_dat_freq[, perc := N/sum(N), keyby = .(variable)]
+    bottom_dat_freq[, group := "bottom"]
+    
+    all_freq_dat <- rbindlist(list(top_dat_freq, bottom_dat_freq), use.names = T)
+    all_freq_dat[, value_unique := value]
+    all_freq_dat[variable == "predictor_lag", value_unique := paste0("lag_", value)]
+    all_freq_dat[variable == "predictor", value_unique := paste0("predictor_", value)]
+    
+    
+    unique_methods <- all_freq_dat[variable == "method", unique(value_unique)]
+    unique_predictors <- all_freq_dat[variable == "predictor", unique(value_unique)]
+    unique_lags <- all_freq_dat[variable == "predictor_lag", unique(value_unique)]
+    
+    all_levels <- c(unique_methods, unique_predictors, unique_lags)
+    all_freq_dat$group <- factor(all_freq_dat$group, levels = c("top", "bottom"))
+    
+    heatmap.p <- ggplot(all_freq_dat, aes(x = group, y = factor(value_unique, levels = all_levels))) +
+      
+      geom_tile(aes(fill = perc), alpha = 0.85)+
+      labs(title = "Distribution of parameters across top (lowest Test MSE) and bottom (Highest Test MSE) groups", x = "Group", y = NULL) +
+      geom_hline(yintercept = length(unique_methods) + .5) +
+      geom_hline(yintercept = length(c(unique_methods, unique_predictors)) + 0.5) +
+      geom_hline(yintercept = length(c(unique_methods, unique_predictors, unique_lags)) + 0.5) +
+      geom_hline(yintercept = length(c(unique_methods, unique_predictors, unique_lags)) + 0.5) +
+      scale_fill_gradient2(low = "darkslategray1", mid = "yellow", high = "turquoise4")+theme_minimal()
+    heatmap.p
+  }
+  
+})
+
+
+
+```
+
+
+
+
+### Epi-Curves {data-height=600}
+
+```{r, echo = F}
+radioButtons("GROUP", label = "Select group",
+             choices = list("Top", "Bottom"), 
+             selected = "Top")
+
+```
+
+```{r, echo = FALSE}
+
+country_output_dat <- reactive({
+  COUNTRY <- input$COUNTRY
+  country_output <- fread(paste0(base_output_dir, country_output_folder, COUNTRY, ".csv"), na.strings = "")
+  return(country_output)
+})
+
+
+renderPlotly({
+  
+  # topruns <- get_top_runs()
+  COUNTRY <- input$COUNTRY
+  # country_output <- fread(paste0("./temp_dat/", COUNTRY, ".csv"), na.strings = "")
+  country_output <- country_output_dat()
+  country_meta <- summaryTable[country == COUNTRY]
+  # selected_runs <- country_metrics()[order(Test_MSE)]$index[1:5]
+  
+  GROUP <- input$GROUP
+  R_dat <- order_data()
+  N = input$N
+  
+  if(COUNTRY == "all"){
+    fig <- plot_ly()%>% layout(
+      title = list(text = "Select a country in left panel", x = 0), height = 475
+    )
+    fig
+  }else{
+    
+    if(length(N) == 0){
+      fig <- plot_ly()%>% layout(
+        title = list(text = "Enter integer greater than 0 for number of top runs", x = 0), height = 475
+      )
+      fig
+    }else if(N == ""| is.na(N) | N <= 0){
+      fig <- plot_ly()%>% layout(
+        title = list(text = "Enter integer greater than 0 for number of top runs", x = 0), height = 475
+      )
+      fig
+    }else{
+      top_ones_index <- R_dat[order %in% 1:N]$index
+      bottom_ones_index <- R_dat[rev_order %in% 1:N][order(rev_order)]$index
+      
+      if(GROUP == "Top"){
+        plot_dat <- country_output[index %in% top_ones_index]
+        plot_dat[R_dat, order := i.order, on = .(index)]
+        setorder(plot_dat, "order")
+        #plot_dat[country_meta, hash := i.hash, on = .(index)]
+        #plot_dat[country_meta, parameters := i.parameters, on = .(index)]
+        
+        plot_dat$index <- factor(plot_dat$index, level = top_ones_index)
+      }else{
+        plot_dat <- country_output[index %in% bottom_ones_index]
+        plot_dat[R_dat, rev_order := i.rev_order, on = .(index)]
+        setorder(plot_dat, "rev_order")
+        #plot_dat[country_meta, hash := i.hash, on = .(index)]
+        #plot_dat[country_meta, parameters := i.parameters, on = .(index)]
+        
+        plot_dat$index <- factor(plot_dat$index, level = bottom_ones_index)
+      }
+      
+      
+      y_dat <- unique(plot_dat[, .(ds, y)])[order(ds)][!is.na(y)]
+      y_dat_NA <- unique(plot_dat[, .(ds, y)])[order(ds)][is.na(y)]
+      
+      fig <- plot_ly( height = 475)
+      fig <- fig %>% add_trace(data = plot_dat, 
+                               x = ~ds, y = ~yhat1, type = 'scatter', mode = 'lines', name = ~index) 
+      fig <- fig %>% add_trace(data = y_dat, 
+                               x = ~ds, y = ~y, type = 'scatter', mode = 'lines', line = list(width = 4, dash = 'dot', color = "black"), name = "observed") 
+      
+      fig <- fig %>% layout(
+        title = "",
+        xaxis = list(title="Year-Month"),
+        yaxis = list(title="New cases per million population")
+      )
+      fig
+      
+    }
+    
+    
+    
+  }
+  
+})
+```
+
+
+### Model parameters of selected top/bottom group in epi-curves plot
+
+```{r, echo = FALSE}
+
+DT::renderDataTable({
+  R_dat <- order_data()
+  N = input$N
+  GROUP = input$GROUP
+  
+  
+  if(length(N) == 0){
+    data.table(index = numeric(), ISO3 = character(), Test_MSE = numeric(), predictor = character(), lag = numeric())
+  }else if(N == ""| is.na(N) | N <= 0){
+    data.table(index = numeric(), ISO3 = character(), Test_MSE = numeric(), predictor = character(), lag = numeric())
+  }else{
+    if(GROUP == "Top"){
+      top_ones <- R_dat[order %in% 1:N, .(metric_order = order, index, ISO3, Test_MSE, method, predictor, lag = predictor_lag, 
+                                          sens_2M = round(sensitivity_2M, 6), 
+                                          spec_2M = round(specificity_2M, 6), 
+                                          sens_20M = round(sensitivity_20M, 6), 
+                                          spec_20M = round(specificity_20M, 6), 
+                                          sens_20cM = round(sensitivity_20cM, 6), 
+                                          spec_20cM = round(specificity_20cM, 6))]
+      # top_ones <- merge(top_ones, country_summary, by = c("index", "ISO3"))
+      # top_ones[, cuml_yhat := round(cuml_yhat, 4)]
+      # top_ones[, peak := round(peak, 4)]
+      top_ones[, Test_MSE := round(Test_MSE, 6)]
+      top_ones[, predictor := gsub("_", " ", predictor)]
+      top_ones[, ISO3 := NULL]
+      # setnames(top_ones,"cuml_yhat", "cuml_cases" )
+      setorder(top_ones, "metric_order")
+      top_ones[, metric_order := NULL]
+      
+    }else{
+      bottom_ones <- R_dat[rev_order %in% 1:N, .(rev_order, index, ISO3, Test_MSE, method, predictor, lag = predictor_lag, 
+                                                 sens_2M = round(sensitivity_2M, 6), 
+                                                 spec_2M = round(specificity_2M, 6), 
+                                                 sens_20M = round(sensitivity_20M, 6), 
+                                                 spec_20M = round(specificity_20M, 6), 
+                                                 sens_20cM = round(sensitivity_20cM, 6), 
+                                                 spec_20cM = round(specificity_20cM, 6))]
+      bottom_ones[, Test_MSE := round(Test_MSE, 6)]
+      bottom_ones[, predictor := gsub("_", " ", predictor)]
+      bottom_ones[, ISO3 := NULL]
+      setorder(bottom_ones, "rev_order")
+      bottom_ones[, rev_order := NULL]
+    }
+    
+  }
+},width = 2)
+
+```
+
+
+
+Binary Outcome Analysis
+=====================================
+
+Column 
+-------------------------------------
+### Best Methods - Sensitivity
+
+```{r, echo = FALSE}
+
+# metricDat: summary table
+# iso3c: any iso3 code in data OR "all" (for summary of all countries)
+# dataset: c("full", "test")
+# outbreak_thresh: c("20 cases per M", "2 cases per M", "20 cuml cases per M")
+
+best_models_binary_outcome <- reactive({
+  
+  metricDat <- copy(summaryTable)
+  iso3c <- input$COUNTRY
+  dataset <- input$BINARY_DATASET
+  outbreak_thresh <- input$BINARY_OUTBREAK_THRESH
+
+  if(outbreak_thresh == "2 cases per M"){
+    
+    if(dataset == "full"){
+
+      max_sensitivity <- metricDat[, .SD[which(sensitivity_2M==max(sensitivity_2M, na.rm=T))], by = .(ISO3)]
+      max_specificity <- metricDat[, .SD[which(specificity_2M==max(specificity_2M, na.rm=T))], by = .(ISO3)]
+      
+    }else if(dataset == "test"){
+      
+      max_sensitivity <- metricDat[, .SD[which(test_sensitivity_2M==max(test_sensitivity_2M, na.rm=T))], by = .(ISO3)]
+      max_specificity <- metricDat[, .SD[which(test_specificity_2M==max(test_specificity_2M, na.rm=T))], by = .(ISO3)]
+      
+    }
+  }else if(outbreak_thresh == "20 cases per M"){
+    
+    if(dataset == "full"){
+      max_sensitivity <- metricDat[metricDat[, .I[sensitivity_20M==max(sensitivity_20M, na.rm = T)], by = ISO3]$V1]
+      max_specificity <- metricDat[metricDat[, .I[specificity_20M==max(specificity_20M, na.rm = T)], by = ISO3]$V1]
+      
+    }else if(dataset == "test"){
+      
+      max_sensitivity <- metricDat[, .SD[which(test_sensitivity_20M==max(test_sensitivity_20M, na.rm=T))], by = .(ISO3)]
+      max_specificity <- metricDat[, .SD[which(test_specificity_20M==max(test_specificity_20M, na.rm=T))], by = .(ISO3)]
+      
+    }
+  }else if(outbreak_thresh == "20 cuml cases per M"){
+    
+    if(dataset == "full"){
+      
+      max_sensitivity <- metricDat[, .SD[which(sensitivity_20cM==max(sensitivity_20cM, na.rm=T))], by = .(ISO3)]
+      max_specificity <- metricDat[, .SD[which(specificity_20cM==max(specificity_20cM, na.rm=T))], by = .(ISO3)]
+      
+    }else if(dataset == "test"){
+      
+      max_sensitivity <- metricDat[, .SD[which(test_sensitivity_20cM==max(test_sensitivity_20cM, na.rm=T))], by = .(ISO3)]
+      max_specificity <- metricDat[, .SD[which(test_specificity_20cM==max(test_specificity_2c0M, na.rm=T))], by = .(ISO3)]
+      
+    }
+  }
+  if(iso3c == "all"){
+    best_method_sensitivity <- max_sensitivity[, .N, by = .(method)][order(-N)]
+    best_model_sensitivity <- max_sensitivity[, .N, by = .(indepVars)][order(-N)]
+    
+    best_method_specificity <- max_specificity[, .N, by = .(method)][order(-N)]
+    best_model_specificity <- max_specificity[, .N, by = .(indepVars)][order(-N)]
+  }else{
+    best_method_sensitivity <- max_sensitivity[ISO3 == iso3c, .N, by = .(method)][order(-N)]
+    best_model_sensitivity <- max_sensitivity[ISO3 == iso3c, .N, by = .(indepVars)][order(-N)]
+    
+    best_method_specificity <- max_specificity[ISO3 == iso3c, .N, by = .(method)][order(-N)]
+    best_model_specificity <- max_specificity[ISO3 == iso3c, .N, by = .(indepVars)][order(-N)]
+  }
+  best_method_sensitivity
+  return(list("sensitivity_method" = best_method_sensitivity, 
+              "sensitivity_model" =best_model_sensitivity, 
+              "specificity_method" =best_method_specificity, 
+              "specificity_model" = best_model_specificity))
+})
+
+
+DT::renderDataTable({
+  
+  
+  selections_binary <- best_models_binary_outcome()
+  selections_binary[["sensitivity_method"]]
+}, options = list(lengthMenu = list(c(5, 10, -1), c('5', '10', 'All')),
+                  pageLength = 5))
+
+
+```
+
+### Best Model - Sensitivity
+
+
+```{r, echo = FALSE}
+
+
+DT::renderDataTable({
+  
+  
+  selections_binary <- best_models_binary_outcome()
+  selections_binary[["sensitivity_model"]]
+}, options = list(lengthMenu = list(c(5, 10, -1), c('5', '10', 'All')),
+                  pageLength = 5))
+
+```
+
+
+
+Column 
+-------------------------------------
+### Best Method - Specificity
+
+```{r, echo = FALSE}
+
+
+DT::renderDataTable({
+  
+  
+  selections_binary <- best_models_binary_outcome()
+  selections_binary[["specificity_method"]]
+}, options = list(lengthMenu = list(c(5, 10, -1), c('5', '10', 'All')),
+                  pageLength = 5))
+
+
+```
+
+
+### Best Model - Specificity
+
+```{r, echo = FALSE}
+
+
+DT::renderDataTable({
+  
+  
+  selections_binary <- best_models_binary_outcome()
+  selections_binary[["specificity_model"]]
+}, options = list(lengthMenu = list(c(5, 10, -1), c('5', '10', 'All')),
+                  pageLength = 5))
+
+
+```
+
+
+
+Binary Outcome Plot
+=====================================
+
+### Outbreak Prediction Timeline
+
+```{r, echo = FALSE}
+
+plot_binary_outcome <- reactive({
+  
+  outbreak_thresh = input$BINARY_OUTBREAK_THRESH
+  idx = input$BINARY_IDX
+  
+  country_dat <- country_output_dat()
+  #country_dat[, ds := as.Date(ds)]
+  country_dat <- country_dat[!is.na(y)]
+  run_dat <- country_dat[index == idx]
+  
+  if(outbreak_thresh == "2 cases per M"){
+    p<- ggplot(run_dat) + 
+      geom_tile(aes(x = ds, y = "Observed", fill = outbreak_observed_2M), color = "black")+
+      geom_tile(aes(x = ds, y = "Predicted", fill = outbreak_predicted_2M), color = "black")+
+      scale_x_discrete(limits=run_dat$ds, breaks=run_dat$ds[seq(1,length(run_dat$ds),by=12)])+
+      scale_fill_manual(name = "Outbreak", values = c("#4258A5","#099079"))+
+      theme(axis.text.x = element_text(angle = 70, hjust=1))
+    out_table <- run_dat[, .N, by = .(outbreak_observed_2M, outbreak_predicted_2M)]
+  }else if(outbreak_thresh == "20 cases per M"){
+    p<- ggplot(run_dat) + 
+      geom_tile(aes(x = ds, y = "Observed", fill = outbreak_observed_20M), color = "black")+
+      geom_tile(aes(x = ds, y = "Predicted", fill = outbreak_predicted_20M), color = "black")+
+      scale_x_discrete(limits=run_dat$ds, breaks=run_dat$ds[seq(1,length(run_dat$ds),by=12)])+
+      scale_fill_manual(name = "Outbreak", values = c( "#4258A5","#099079"))+
+      theme(axis.text.x = element_text(angle = 70, hjust=1))
+    out_table <- run_dat[, .N, by = .(outbreak_observed_20M, outbreak_predicted_20M)]
+  }else if(outbreak_thresh == "20 cuml cases per M"){
+    p<- ggplot(run_dat) + 
+      geom_tile(aes(x = ds, y = "Observed", fill = outbreak_observed_cuml_20M), color = "black")+
+      geom_tile(aes(x = ds, y = "Predicted", fill = outbreak_predicted_cuml_20M), color = "black")+
+      scale_x_discrete(limits=run_dat$ds, breaks=run_dat$ds[seq(1,length(run_dat$ds),by=12)])+
+      scale_fill_manual(name = "Outbreak", values = c( "#4258A5","#099079"))+
+      theme(axis.text.x = element_text(angle = 70, hjust=1))
+    out_table <- run_dat[, .N, by = .(outbreak_observed_cuml_20M, outbreak_predicted_cuml_20M)]
+  }
+  return(list("plot" = p, "table" = out_table))
+})
+
+
+renderPlot({
+  if(is.na(input$BINARY_IDX)  | input$COUNTRY == "all"){
+    ggplot() +
+      theme_void() +
+      geom_text(aes(0,0,label='Select a country and enter run index in left panel.'))
+  }else{
+    binary_timeseries <- plot_binary_outcome()
+    binary_timeseries[["plot"]]
+  }
+  
+})
+
+
+```
+
+
+### Outbreak Prediction Table
+
+```{r, echo = F}
+
+DT::renderDataTable({
+  if(is.na(input$BINARY_IDX) | input$COUNTRY == "all"){
+    data.table('Select a country and enter run index in left panel.' = character())
+  }else{
+    binary_timeseries <- plot_binary_outcome()
+    binary_timeseries[["table"]]
+  }
+  
+})
+
+```
+
