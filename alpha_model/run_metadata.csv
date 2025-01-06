@@ -1,0 +1,41 @@
+country,predictor,model,environmentalArg,Reps,Rep,ROW_ID,Seed
+cluster:2,"{'birth_per_1k': 0, 'MCV1': 0, 'MCV2': 0}",Bagging regressor,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,1,8563,522891
+cluster:2,"{'birth_per_1k': 0, 'MCV1': 0, 'MCV2': 0}",Bagging regressor,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,2,8564,506725
+cluster:2,"{'birth_per_1k': 0, 'MCV1': 0, 'MCV2': 0}",Bagging regressor,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,3,8565,765797
+cluster:2,"{'birth_per_1k': 0, 'MCV1': 0, 'MCV2': 0}",Bagging regressor,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,4,8566,797594
+cluster:2,"{'birth_per_1k': 0, 'MCV1': 0, 'MCV2': 0}",Bagging regressor,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,5,8567,122409
+cluster:2,"{'mnths_since_outbreak_2_per_M': 0, 'incoming_air_passengers': 0, 'passengers_from_iso3_reporting_cases': 0}",Bagging regressor,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,1,9888,586112
+cluster:2,"{'mnths_since_outbreak_2_per_M': 0, 'incoming_air_passengers': 0, 'passengers_from_iso3_reporting_cases': 0}",Bagging regressor,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,2,9889,211232
+cluster:2,"{'mnths_since_outbreak_2_per_M': 0, 'incoming_air_passengers': 0, 'passengers_from_iso3_reporting_cases': 0}",Bagging regressor,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,3,9890,570338
+cluster:2,"{'mnths_since_outbreak_2_per_M': 0, 'incoming_air_passengers': 0, 'passengers_from_iso3_reporting_cases': 0}",Bagging regressor,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,4,9891,778038
+cluster:2,"{'mnths_since_outbreak_2_per_M': 0, 'incoming_air_passengers': 0, 'passengers_from_iso3_reporting_cases': 0}",Bagging regressor,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,5,9892,712403
+cluster:2,"{'birth_per_1k': 0, 'MCV1': 0, 'MCV2': 0}",CatBoost,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,26,9963,54853
+cluster:2,"{'birth_per_1k': 0, 'MCV1': 0, 'MCV2': 0}",CatBoost,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,27,9964,377846
+cluster:2,"{'birth_per_1k': 0, 'MCV1': 0, 'MCV2': 0}",CatBoost,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,28,9965,273725
+cluster:2,"{'birth_per_1k': 0, 'MCV1': 0, 'MCV2': 0}",CatBoost,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,29,9966,453537
+cluster:2,"{'birth_per_1k': 0, 'MCV1': 0, 'MCV2': 0}",CatBoost,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,30,9967,954595
+cluster:2,"{'mnths_since_outbreak_2_per_M': 0, 'incoming_air_passengers': 0, 'passengers_from_iso3_reporting_cases': 0}",CatBoost,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,26,11288,477372
+cluster:2,"{'mnths_since_outbreak_2_per_M': 0, 'incoming_air_passengers': 0, 'passengers_from_iso3_reporting_cases': 0}",CatBoost,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,27,11289,862561
+cluster:2,"{'mnths_since_outbreak_2_per_M': 0, 'incoming_air_passengers': 0, 'passengers_from_iso3_reporting_cases': 0}",CatBoost,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,28,11290,662696
+cluster:2,"{'mnths_since_outbreak_2_per_M': 0, 'incoming_air_passengers': 0, 'passengers_from_iso3_reporting_cases': 0}",CatBoost,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,29,11291,281438
+cluster:2,"{'mnths_since_outbreak_2_per_M': 0, 'incoming_air_passengers': 0, 'passengers_from_iso3_reporting_cases': 0}",CatBoost,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,30,11292,801396
+cluster:2,"{'birth_per_1k': 0, 'MCV1': 0, 'MCV2': 0}",gradient boosting,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,51,11363,379967
+cluster:2,"{'birth_per_1k': 0, 'MCV1': 0, 'MCV2': 0}",gradient boosting,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,52,11364,326011
+cluster:2,"{'birth_per_1k': 0, 'MCV1': 0, 'MCV2': 0}",gradient boosting,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,53,11365,26175
+cluster:2,"{'birth_per_1k': 0, 'MCV1': 0, 'MCV2': 0}",gradient boosting,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,54,11366,476612
+cluster:2,"{'birth_per_1k': 0, 'MCV1': 0, 'MCV2': 0}",gradient boosting,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,55,11367,323239
+cluster:2,"{'mnths_since_outbreak_2_per_M': 0, 'incoming_air_passengers': 0, 'passengers_from_iso3_reporting_cases': 0}",gradient boosting,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,51,12688,290474
+cluster:2,"{'mnths_since_outbreak_2_per_M': 0, 'incoming_air_passengers': 0, 'passengers_from_iso3_reporting_cases': 0}",gradient boosting,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,52,12689,697081
+cluster:2,"{'mnths_since_outbreak_2_per_M': 0, 'incoming_air_passengers': 0, 'passengers_from_iso3_reporting_cases': 0}",gradient boosting,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,53,12690,779869
+cluster:2,"{'mnths_since_outbreak_2_per_M': 0, 'incoming_air_passengers': 0, 'passengers_from_iso3_reporting_cases': 0}",gradient boosting,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,54,12691,384223
+cluster:2,"{'mnths_since_outbreak_2_per_M': 0, 'incoming_air_passengers': 0, 'passengers_from_iso3_reporting_cases': 0}",gradient boosting,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,55,12692,707154
+IND,"{'birth_per_1k': 0, 'MCV1': 0, 'MCV2': 0}",Bagging regressor,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,1,32643,500852
+IND,"{'birth_per_1k': 0, 'MCV1': 0, 'MCV2': 0}",Bagging regressor,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,2,32644,777085
+IND,"{'birth_per_1k': 0, 'MCV1': 0, 'MCV2': 0}",Bagging regressor,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,3,32645,902398
+IND,"{'birth_per_1k': 0, 'MCV1': 0, 'MCV2': 0}",Bagging regressor,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,4,32646,981148
+IND,"{'birth_per_1k': 0, 'MCV1': 0, 'MCV2': 0}",Bagging regressor,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,5,32647,994455
+IND,"{'mnths_since_outbreak_2_per_M': 0, 'incoming_air_passengers': 0, 'passengers_from_iso3_reporting_cases': 0}",Bagging regressor,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,1,33968,924583
+IND,"{'mnths_since_outbreak_2_per_M': 0, 'incoming_air_passengers': 0, 'passengers_from_iso3_reporting_cases': 0}",Bagging regressor,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,2,33969,737629
+IND,"{'mnths_since_outbreak_2_per_M': 0, 'incoming_air_passengers': 0, 'passengers_from_iso3_reporting_cases': 0}",Bagging regressor,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,3,33970,389319
+IND,"{'mnths_since_outbreak_2_per_M': 0, 'incoming_air_passengers': 0, 'passengers_from_iso3_reporting_cases': 0}",Bagging regressor,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,4,33971,828937
+IND,"{'mnths_since_outbreak_2_per_M': 0, 'incoming_air_passengers': 0, 'passengers_from_iso3_reporting_cases': 0}",Bagging regressor,"{'mean_precip_mm_per_day': 3, 'mean_max_temp': 3}",25,5,33972,534577
