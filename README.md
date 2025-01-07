@@ -5,7 +5,7 @@ Overview of the steps for running the model:
 1. Run scripts in `data_ingestion_pipeline/` (scripts 1-5)
 2. Run `data_ingestion_pipeline/` (script 6)
 3. Set up python environment
-4. Run the forecast model (`forecast_model/TTSEvalWithCode.ipynb` or `forecast_model/TTSEval.ipynb`
+4. Run the model (`alpha_model/RunFromMetadata.ipynb` or `alpha_model/RunAlphaModels.ipynb`)
 
 Details on these steps are found below.
 
