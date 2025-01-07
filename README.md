@@ -65,5 +65,7 @@ The run will output summary statistics files to `output/<run_name>/scores/`  in 
 
 ### Forward projection application
 
-Once a parameter set is chosen for each country, the forward projection approach will run N number of projection steps past the last observed data present, with the default being 9 months. The [RunAlphaModel.ipynb](alpha_model/RunAlphaModel.ipynb) notebook is used for projection. Projections require `input/alpha_model_by_country.csv`, which specifies the parameter set for each country being projected.
+Once a parameter set is chosen for each country, the forward projection approach will run N number of projection steps past the last observed data present, with the default being 9 months. The [RunAlphaModels.ipynb](alpha_model/RunAlphaModels.ipynb) notebook is used for projection. Projections require `input/alpha_model_by_country.csv`, which specifies the parameter set for each country being projected.
+
+No summary statistics will be output for future projection runs since there will be no observed data to calculate them against. Model projects will be written to `output/tables` in the convention `<ROW_ID>_<country ISO3>_Projection.csv.`
 
