@@ -1,0 +1,176 @@
+---
+title: "Predictor variable clustering"
+author: "Amanda Meadows"
+date: "`r format(Sys.Date(), '%m-%d-%Y')`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 1
+    toc_float: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+library(data.table)
+library(tidyverse)
+library(ggthemes)
+library(rworldmap)
+library(leaflet)
+library(plotly)
+library(DT)
+library(dtwclust)
+theme_set(theme_bw())
+```
+
+# Background
+
+* Performed multivariate, time series clustering using dynamic time warping to calculate the distance matrix and hierarchical clustering.
+* Used  `cases_1M`, `mean_precip_mm_per_day`, `MCV1`, `migrations_per_1k`, `mean_max_temp`, `birth_per_1k`, `incoming_air_passengers`, `outgoing_air_passengers` as input variables to cluster
+* The clustering algorithm does now allow time series of variable length, or missing values.
+  + Subset time series to dates occurring prior to 2023-01-01
+  + Excluded countries with missing precipitation data; performed linear interpolation when there were gaps in the data
+  + If cases_1M was `NA`, set to 0
+* All countries with case data were eligible for inclusion
+
+# Cluster Dendrogram 
+
+```{r}
+inputDat <- fread("~/measles_forecasting/alpha_model/processed_measles_model_data.csv -", na.strings = "")
+cutoffDat <- unique(inputDat[, .(ISO3, Country)])
+inputDat[, date := as.Date(date)]
+inputDat[inputDat[outbreak_20_cuml_per_M == "yes", .N, by = .(ISO3, Year)][, .N, by = .(ISO3)], years_with_outbreak := i.N, on = .(ISO3)]
+outbreakDat <- unique(inputDat[, .(ISO3, Country, years_with_outbreak)])
+outbreakDat <- outbreakDat[order(-years_with_outbreak)]
+
+
+testDat <- copy(inputDat)
+testDat <- testDat[date < as.Date("2023-01-01") & date >= as.Date("2018-01-01")]
+testDat <- testDat[, .(ISO3, date, cases_1M, mean_precip_mm_per_day, 
+                       migrations_per_1k, MCV1, mean_max_temp, birth_per_1k,
+                       incoming_air_passengers, outgoing_air_passengers)]
+
+# handle missing values
+## assume missing cases are 0
+testDat[is.na(cases_1M), cases_1M := 0]
+## remove countries where all precip observations were missing
+testDat[testDat[is.na(mean_precip_mm_per_day)][, .N, by = .(ISO3)], missing_precip_obs := i.N, on = .(ISO3)]
+testDat[is.na(missing_precip_obs), missing_precip_obs := 0]
+testDat <- testDat[missing_precip_obs < 50]
+
+## use linear interpolation for the remaining missing precip values
+testDat[, fill_precip := ifelse(is.na(mean_precip_mm_per_day), zoo::na.approx(mean_precip_mm_per_day), mean_precip_mm_per_day), by = .(ISO3)]
+testDat[, mean_precip_mm_per_day := NULL]
+mycols <- c("fill_precip", "MCV1", "migrations_per_1k", "mean_max_temp", "birth_per_1k",
+            "outgoing_air_passengers", "incoming_air_passengers", "cases_1M")
+testDat[, (mycols) := lapply(.SD, BBmisc::normalize, method = "standardize"), .SDcols = mycols]
+```
+
+```{r}
+# convert country-level data to a matrix
+country_list <- unique(testDat$ISO3)
+
+ to_mat <- function(iso3){
+   mat <- testDat[ISO3 == iso3, .(fill_precip, mean_max_temp, MCV1, migrations_per_1k, birth_per_1k,
+                                  incoming_air_passengers, outgoing_air_passengers, cases_1M)]
+   mat <- as.matrix(mat)
+   return(mat)
+ }
+time_dat <- sapply(to_mat, X = country_list, simplify = F, USE.NAMES = T)
+# perform hierarchical clustering using dynamic time warping distance calculation
+hc <- tsclust(time_dat, type = "h", distance = "dtw", seed = 2371)
+```
+
+```{r, fig.width= 24, fig.height= 11}
+#plot dengrogram
+plot(hc)
+```
+
+```{r}
+# cut the tree into clusters (3-12 clusters)
+clusts <- cutree(hc, k = 3L:12L)
+map_clusts <- setDT(data.frame(clusts), keep.rownames = TRUE)[]
+clusters_long <- melt(map_clusts, id.vars = "rn", variable.name = "Num_clusters", value.name = "Cluster")
+setnames(clusters_long, "rn", "ISO3")
+clusters_long[, Num_clusters := gsub("X", "", Num_clusters)]
+clusters_long[, Num_clusters := as.numeric(Num_clusters)]
+clusters_long[clusters_long[, .N, by = .(Num_clusters, Cluster)], num_in_cluster := i.N, on = .(Num_clusters, Cluster)]
+```
+
+# Countries per cluster
+
+* Hierarchical clustering begins by treating each data point as a separate cluster, then finds the two closest clusters and merges them. This process is repeated until all data points are in clusters.
+* The output is a dendrogram, which shows the hierarchical relationship between the clusters.
+* Cluster groups can be partitioned by selecting various levels of the hierarchy.
+* The table shows the number of countries per cluster when the hierarchy is divided into 3 to 12 clusters
+
+```{r}
+DT::datatable(clusters_long[, .N, by = .(Num_clusters, Cluster)])
+clusters_long[num_in_cluster == 1, Cluster := 0]
+```
+
+# Map of clusters
+
+* Showing results for 10 clusters
+* If a cluster is assigned a single country, that cluster is reset to 0 to keep the map cleaner
+
+```{r}
+world_data <- getMap(resolution='low')
+world_data$ISO_A2[is.na(world_data$ISO_A2)]<-"NA"
+
+map_clusters <- function(cluster_dat, world_dat, cluster_group){
+  worlddata <- copy(world_dat)
+  map_data_order <- data.table(ISO2 = worlddata$ISO_A2, ISO3= worlddata$ISO_A3)
+  country_cluster <- unique(clusters_long[Num_clusters == 10, .(ISO3, cluster = Cluster)])
+  map_data_order <- merge(map_data_order, country_cluster, by = "ISO3", all.x = T)
+  worlddata <- merge(worlddata, map_data_order, by.x = "ISO_A3", by.y = "ISO3", all.x = T)
+  
+  cols <- c("#268bd2", "#b58900", "#cb4b16", "#dc322f",
+            "#d33682", "#6c71c4", "#2aa198", "#859900")
+  factpal <- colorFactor(palette = cols, worlddata$cluster)
+  
+  leaflet() %>%
+    addProviderTiles(providers$CartoDB.Positron,
+                     options = providerTileOptions(noWrap = TRUE)) %>% 
+    addPolygons(data = worlddata, color = ~factpal(cluster), weight = 1, smoothFactor = 0.5,
+                opacity = 0.25, fillOpacity = 0.5) %>% 
+    addCircleMarkers(data = worlddata, ~LON, ~LAT, 
+                     popup = paste0(worlddata$cluster, " - ", worlddata$ADMIN),
+                     weight = 0.5, radius = 1.5, fillColor = "black", color = "black") %>% 
+    addLegend("bottomright", pal = factpal, values = worlddata$cluster,
+              title = "Cluster",  opacity = 0.5) %>% 
+    setView(-60, 42.3489054, zoom = 2)
+}
+```
+
+
+```{r}
+map_clusters(cluster_dat = clusters_long, world_dat = world_data, cluster_group = 10)
+```
+
+# Variable importance
+
+* Trained a Random Forest classifier to discriminate input variables between the clusters
+* Extracted the feature importance from the model
+
+```{r}
+country_cluster <- clusters_long[Num_clusters == 10]
+fwrite(country_cluster, "predictor_clusters.csv")
+testDat[country_cluster, cluster := i.Cluster, on = .(ISO3)]
+```
+
+
+```{r}
+library(randomForest)
+library(varImp)
+
+timeDat <- as.xts.data.table(testDat[, .(date, cluster, fill_precip, MCV1, migrations_per_1k, mean_max_temp, 
+                                         birth_per_1k, incoming_air_passengers, outgoing_air_passengers, cases_1M)],
+               order.by = date)
+
+model <- randomForest(as.factor(cluster) ~ fill_precip  + MCV1 + migrations_per_1k + mean_max_temp + birth_per_1k + incoming_air_passengers + outgoing_air_passengers + cases_1M, 
+                          data = timeDat, importance=TRUE) 
+varImpPlot(model, sort=TRUE)
+```
