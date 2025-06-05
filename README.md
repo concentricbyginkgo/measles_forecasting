@@ -15,8 +15,8 @@ This repository provides a complete pipeline for measles outbreak forecasting us
 
 ```
 measles_forecasting/
-├── data_ingestion_pipeline/    # R scripts for data processing (1-7)
-├── model/                      # Core Python modules
+├── data_ingestion_pipeline/   # R scripts for data processing (1-7)
+├── model/                     # Core Python modules
 ├── alpha_model/               # Alpha model notebooks and configs
 ├── beta_model/                # Beta model development
 ├── model_comparison_pipeline/ # Model evaluation tools
