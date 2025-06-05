@@ -1,71 +1,183 @@
-# measles_forecasting
-AI-enabled measles forecasting
+# Measles Forecasting
+AI-enabled measles forecasting using machine learning models
 
-Overview of the steps for running the model:
-1. Run scripts in `data_ingestion_pipeline/` (scripts 1-5)
-2. Run `data_ingestion_pipeline/` (script 6)
-3. Set up python environment
-4. Run the model (`alpha_model/RunFromMetadata.ipynb` or `alpha_model/RunAlphaModels.ipynb`)
+## Overview
 
-Details on these steps are found below.
+This repository provides a complete pipeline for measles outbreak forecasting using machine learning approaches. The system processes epidemiological, climate, and socioeconomic data to predict measles case incidence at the country level.
 
-## Data ingestion pipeline
-The data ingestion pipeline contains scripts to process raw case and predictor data to a clean, consistent format for model fitting. All processing is done in R. The processed model data are provided, but the pipeline can be used to re-create, or refresh the provided processed dataset. Be advised that the processing of the gridded, temporal climate data is extremely compute and memory heavy. 
+### Quick Start
+1. **Data Processing**: Run scripts 1-7 in `data_ingestion_pipeline/` 
+2. **Environment Setup**: Create Python environment using `environment.yml`
+3. **Model Training**: Use `alpha_model/RunFromMetadata.ipynb` for grid search or `alpha_model/RunAlphaModels.ipynb` for forecasting
+4. **Beta Models**: Explore advanced methods in `beta_model/BetaMethodsComparison.ipynb`
 
-The scripts here will recreate `model_training_data.csv`. Scripts 1-5 must be successfully run before running `6_combine_all_datasets.R`. Script `4_social_data_processing.R` has it's own README file `README_Social_Series.txt` because there are several datasets processed within that script. Manual downloading of the raw datasets is necessary, but links to the raw data are provided within the scripts. A data inventory with these links is also present in `other_deliverables/data_inventory/`. You can find additional information on the source of the data, temporal and spatial resolution of the data, license, etc. here as well.
+## Repository Structure
 
-Note that `2_precip_processing.R` and `3_temperature_processing.R` extract and geocode gridded, temporal data (from `.nc` files to data table). This process is compute and memory intensive. Precipitation data is available on a monthly temporal resolution, while temperature data is at a daily resolution. While both datasets take considerable compute time to process, the temperature dataset is especially intensive. The scripts are set up to run parallelized, so be sure to tune these parameters to the specifications of your machine.
+```
+measles_forecasting/
+├── data_ingestion_pipeline/    # R scripts for data processing (1-7)
+├── model/                      # Core Python modules
+├── alpha_model/               # Alpha model notebooks and configs
+├── beta_model/                # Beta model development
+├── model_comparison_pipeline/ # Model evaluation tools
+└── other_deliverables/        # Documentation and data inventory
+```
 
-## Forecasting model
+## Data Ingestion Pipeline
 
-The forecasting model is run in Python via Jupyter Lab.
+The data ingestion pipeline contains **7 R scripts** that process raw case and predictor data into a clean, consistent format for model training:
+
+### Scripts Overview
+1. **`1_case_processing.R`** - Processes WHO measles case data, creates outbreak indicators
+2. **`2_precip_processing.R`** - Extracts and processes gridded precipitation data (compute-intensive)
+3. **`3_temperature_processing.R`** - Processes gridded temperature data (very compute-intensive)
+4. **`4_social_data_processing.R`** - Processes socioeconomic indicators (see `README_Social_Series.txt`)
+5. **`5_road_data_processing.R`** - Processes road density as development proxy
+6. **`6_SIA_processing.R`** - **NEW**: Processes Supplementary Immunization Activities data
+7. **`7_combine_all_datasets.R`** - Combines all processed datasets into final model input
+
+### Important Notes
+- **Scripts 1-6 must complete successfully before running script 7**
+- Scripts 2 & 3 process gridded climate data (.nc files) - **extremely compute and memory intensive**
+- Climate processing is parallelized - tune parameters for your machine specifications
+- Manual downloading of raw datasets required (links provided in scripts)
+- Complete data inventory available in `other_deliverables/data_inventory/`
+
+## Forecasting Models
 
 ### Environment Setup
-You'll most likely want to run this in a mamba python 3.11 environment via the miniforge distribution from here: 
 
-[Miniforge Github](https://github.com/conda-forge/miniforge)
+**Recommended**: Use mamba/conda with Python 3.11
 
-*nix users installation:
+#### Option 1: Using the provided environment file
+```bash
+conda env create -f alpha_model/environment.yml
+conda activate measles_forecasting
 ```
-$ curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
-$ bash Miniforge3-$(uname)-$(uname -m).sh
+
+#### Option 2: Manual installation
+```bash
+mamba create -n measles_forecasting python=3.11
+mamba activate measles_forecasting
+mamba install neuralprophet scikit-learn statsmodels jupyterlab pandas numpy \
+              geopandas multiprocess matplotlib scipy country_converter seaborn \
+              xgboost catboost lightgbm
 ```
 
-Once installed, you can open a new terminal tab or run `bash ~/.bashrc` to access mamba. To get started, you'll want to create a mamba environment for this with the required libraries, switch to that environment, and then open jupyter lab. This may be done via the following bash prompts:
+### Core Python Modules (`model/`)
 
+The repository includes four main Python modules:
+
+- **`MeaslesDataLoader.py`** - Data loading and preprocessing
+- **`MeaslesModelEval.py`** - Model evaluation and cross-validation  
+- **`EpiPreprocessor.py`** - Epidemiological data preprocessing
+- **`fitOne.py`** - Individual model fitting functions
+
+### Alpha Model (`alpha_model/`)
+
+#### Grid Search Application (`RunFromMetadata.ipynb`)
+Performs systematic parameter search to find optimal models for each country.
+
+**Required metadata fields:**
+- **`ROW_ID`**: Unique identifier for parameter set
+- **`model`**: ML model type (`XGBRegressor`, `CatBoost`, `gradient boosting`, `Random Forest`, `Bagging regressor`)
+- **`predictor`**: Primary predictor variables and lags `{'predictor': lag}`
+- **`environmentalArg`**: Environmental predictors `{'predictor': lag}`
+- **`country`**: ISO3 country code or geographic grouping
+- **`Seed`**: Random seed for reproducibility
+
+**Usage:**
+```python
+for i in range(len(meta_df)):
+    fi.fitOne(metadata=meta_df, ROW=i, run_name='sweep_20250106')
 ```
-$ mamba create -n bmgf neuralprophet scikit-learn statsmodels jupyterlab pandas numpy osmnx geopandas multiprocess matplotlib statsmodels scipy country_converter seaborn matplotlib==3.8.3
-$ mamba activate bmgf
-$ jupyter lab
-```
-### Basic usage
 
-We provide two applications for running the model: grid search model selection and forward projection. Whichever way you run the analysis, they all use the same data loader, MeaslesDataLoader.py, which loads `model_training_data.csv` unless an alternate file is passed.
+**Outputs:**
+- Summary statistics: `output/<run_name>/scores/<ROW_ID>_Summary.csv`
+- Projections: `output/<run_name>/tables/<ROW_ID>_<ISO3>_Projection.csv`
 
-### Grid search application
-A staged grid search approach was used to find the best-fitting model for each country for the alpha model phase. The [RunFromMetadata.ipynb](alpha_model/RunFromMetadata.ipynb) notebook was used to perform this search. This notebook requires a meta data file that contains all of the specifications for the parameter sets examined in the grid search. The metadata file must include the following fields:
+#### Forward Projection (`RunAlphaModels.ipynb`)
+Generates future forecasts using pre-selected optimal parameters.
 
-**ROW_ID**: an id corresponding to the metadata row.
-model: one of the following names  specifying which ML learning model to use: XGBRegressor, CatBoost, gradient boosting, Random Forest, or Bagging Regressor. Names must match exactly to ensure the dictionary encoded in the model script will recognize and load the correct module.
-**predictor**: the predictor variable(s) and predictor lag to evaluate. Must be in the form {‘<predictor>’: <predictor lag}.
-**environmentalArg**: environmental predictor variables included in the model. Must also be in the form {‘<predictor>’: <predictor lag}.
-**country**: the ISO3 code of the country or the character name of the geography to run the model. Examples of non-country geographies include cluster or unicef region variables in the input data; these will run global-local models of all countries mapping to the geography.
-**Seed**: a random seed for reproducibility of the run.
+**Requirements:**
+- `input/alpha_model_by_country.csv` - Parameter specifications per country
+- Trained models from grid search
 
-A sample metadata file [run_metadata.csv](alpha_model/run_metadata.csv) is included with an abbreviated list of parameter sets. The grid search is run by calling the fitOne function:  
+**Outputs:**
+- Future projections: `output/tables/<ROW_ID>_<ISO3>_Projection.csv`
 
-```
-for i in 1:len(meta_df):
-    fi.fitOne(metadata = meta_df, ROW = i, run_name = 'sweep_20250106')
+### Beta Model (`beta_model/`)
 
-```
-The function takes the metadata file, a ROW argument (used for subsetting the metadata file, and run_name argument (used for organizing model output in a subdirectory in the output/ folder. 
+Advanced model development and comparison:
 
-The run will output summary statistics files to `output/<run_name>/scores/`  in the naming convention `<ROW_ID>_Summary.csv` and model projections to `output/<run_name>/tables/`  in the convention `<ROW_ID>_<country ISO3>_Projection.csv.` Summary statistics files include test and train MSE, MAE, an R2 values, sensitivity, specificity, the ML method, and the ROW_ID from the metadata file. Projection files contain the following fields: ID (the country ISO3 code), ds (the date/timestep), y (the observed measles incidence), yhat1 (the model-projected measles incidence), and ROW_ID (the metadata ROW_ID). All runs will output a summary file, but runs that fail will not write out a projection table. 
+- **`BetaMethodsComparison.ipynb`** - Comparative analysis of modeling approaches
+- **`beta_run_specs.csv`** - Configuration file for beta model parameters
 
-### Forward projection application
+## Model Features
 
-Once a parameter set is chosen for each country, the forward projection approach will run N number of projection steps past the last observed data present, with the default being 9 months. The [RunAlphaModels.ipynb](alpha_model/RunAlphaModels.ipynb) notebook is used for projection. Projections require `input/alpha_model_by_country.csv`, which specifies the parameter set for each country being projected.
+### Supported ML Algorithms
+- **XGBoost** - Gradient boosting framework
+- **CatBoost** - Categorical boosting
+- **LightGBM** - Gradient boosting
+- **Random Forest** - Ensemble method
+- **Bagging Regressor** - Bootstrap aggregating
+- **Gradient Boosting** - Scikit-learn implementation
 
-No summary statistics will be output for future projection runs since there will be no observed data to calculate them against. Model projects will be written to `output/tables` in the convention `<ROW_ID>_<country ISO3>_Projection.csv.`
+### Data Sources
+- **Epidemiological**: WHO measles surveillance data
+- **Climate**: Gridded precipitation and temperature data
+- **Socioeconomic**: World Bank indicators, migration data
+- **Infrastructure**: Road density data
+- **Immunization**: MCV1/MCV2 coverage, SIA campaigns
+- **Travel**: Air passenger flows
+
+### Key Features
+- Country-specific and clustered modeling approaches
+- Time series cross-validation
+- Outbreak probability predictions
+- Environmental and social determinants integration
+- Comprehensive model evaluation metrics
+
+## Data Requirements
+
+The model expects `input/processed_measles_model_data.csv` generated by the data ingestion pipeline. Key variables include:
+
+- **Target**: `cases_1M` (cases per million population)
+- **Outbreak indicators**: Various threshold-based outbreak definitions
+- **Climate**: Temperature and precipitation aggregates
+- **Socioeconomic**: Birth rates, migration, development indicators
+- **Immunization**: Vaccination coverage and campaign data
+
+## Output Format
+
+All projection files contain:
+- **`ID`**: Country ISO3 code
+- **`ds`**: Date/timestamp  
+- **`y`**: Observed measles incidence
+- **`yhat1`**: Model-projected incidence
+- **`ROW_ID`**: Metadata identifier
+
+## Model Comparison Pipeline
+
+Additional tools for model evaluation and comparison are available in `model_comparison_pipeline/`.
+
+## Documentation
+
+- **Data inventory**: `other_deliverables/data_inventory/`
+- **Social data README**: `data_ingestion_pipeline/README_Social_Series.txt`
+- **Project documentation**: `other_deliverables/`
+
+## Notes for Public Use
+
+This repository has been prepared for public use:
+- ✅ **No AWS dependencies** - Removed S3 data pulls
+- ✅ **Local data processing** - All data sources use local files
+- ✅ **Complete environment specification** - Dependencies clearly defined
+- ✅ **Comprehensive documentation** - Updated README and comments
+
+Users must run the data ingestion pipeline to generate required input files, as processed data files are not included due to size constraints.
+
+## Citation
+
+When using this code, please cite the associated research and acknowledge the data sources as detailed in the data inventory.
 
