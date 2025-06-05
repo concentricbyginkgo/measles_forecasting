@@ -1,0 +1,195 @@
+ISO3,Country,Region,cluster,cluster_region,cluster_redraw
+AGO,Angola,AFR,1,1,8
+BEN,Benin,AFR,1,1,7
+BDI,Burundi,AFR,1,1,7
+CPV,Cabo Verde,AFR,1,1,7
+CMR,Cameroon,AFR,1,1,7
+CAF,Central African Republic,AFR,1,1,8
+TCD,Chad,AFR,1,1,8
+COM,Comoros,AFR,1,1,7
+COG,Congo,AFR,1,1,7
+CIV,Côte d'Ivoire,AFR,1,1,7
+COD,Democratic Republic of the Congo,AFR,1,1,7
+GNQ,Equatorial Guinea,AFR,1,1,7
+ETH,Ethiopia,AFR,1,1,7
+GAB,Gabon,AFR,1,1,7
+GMB,Gambia,AFR,1,1,7
+GIN,Guinea,AFR,1,1,8
+GNB,Guinea-Bissau,AFR,1,1,7
+LBR,Liberia,AFR,1,1,7
+MDG,Madagascar,AFR,1,1,8
+MLI,Mali,AFR,1,1,7
+MRT,Mauritania,AFR,1,1,7
+MUS,Mauritius,AFR,1,1,7
+NER,Niger,AFR,1,1,7
+NGA,Nigeria,AFR,1,1,7
+RWA,Rwanda,AFR,1,1,7
+STP,Sao Tome and Principe,AFR,1,1,7
+SYC,Seychelles,AFR,1,1,7
+SSD,South Sudan,AFR,1,1,7
+TGO,Togo,AFR,1,1,7
+AFG,Afghanistan,EMR,1,1,7
+SOM,Somalia,EMR,1,1,8
+YEM,Yemen,EMR,1,1,7
+PNG,Papua New Guinea,WPR,1,5,8
+DZA,Algeria,AFR,2,2,2
+BWA,Botswana,AFR,2,2,2
+BFA,Burkina Faso,AFR,2,2,1
+ERI,Eritrea,AFR,2,2,1
+SWZ,Eswatini,AFR,2,2,2
+GHA,Ghana,AFR,2,2,1
+KEN,Kenya,AFR,2,2,1
+LSO,Lesotho,AFR,2,2,2
+MWI,Malawi,AFR,2,2,1
+MOZ,Mozambique,AFR,2,2,1
+NAM,Namibia,AFR,2,2,1
+SEN,Senegal,AFR,2,2,1
+SLE,Sierra Leone,AFR,2,2,1
+ZAF,South Africa,AFR,2,2,3
+UGA,Uganda,AFR,2,2,1
+TZA,United Republic of Tanzania,AFR,2,2,1
+ZMB,Zambia,AFR,2,2,1
+ZWE,Zimbabwe,AFR,2,2,1
+ATG,Antigua and Barbuda,AMR,2,3,11
+BHS,Bahamas,AMR,2,3,11
+BRB,Barbados,AMR,2,3,11
+BLZ,Belize,AMR,2,3,2
+BOL,Bolivia (Plurinational State of),AMR,2,3,2
+BRA,Brazil,AMR,2,3,2
+COL,Colombia,AMR,2,3,2
+CRI,Costa Rica,AMR,2,3,11
+CUB,Cuba,AMR,2,3,11
+DMA,Dominica,AMR,2,3,11
+DOM,Dominican Republic,AMR,2,3,11
+ECU,Ecuador,AMR,2,3,2
+SLV,El Salvador,AMR,2,3,2
+GRD,Grenada,AMR,2,3,11
+GTM,Guatemala,AMR,2,3,11
+GUY,Guyana,AMR,2,3,3
+HTI,Haiti,AMR,2,3,11
+HND,Honduras,AMR,2,3,11
+JAM,Jamaica,AMR,2,3,11
+NIC,Nicaragua,AMR,2,3,2
+PAN,Panama,AMR,2,3,2
+KNA,Saint Kitts and Nevis,AMR,2,3,11
+LCA,Saint Lucia,AMR,2,3,11
+VCT,Saint Vincent and the Grenadines,AMR,2,3,11
+SUR,Suriname,AMR,2,3,2
+TTO,Trinidad and Tobago,AMR,2,3,6
+EGY,Egypt,EMR,2,4,3
+IRQ,Iraq,EMR,2,4,2
+JOR,Jordan,EMR,2,4,3
+LBY,Libya,EMR,2,4,2
+PAK,Pakistan,EMR,2,4,1
+SDN,Sudan,EMR,2,4,1
+BGD,Bangladesh,SEAR,2,5,3
+BTN,Bhutan,SEAR,2,5,10
+MDV,Maldives,SEAR,2,5,10
+MMR,Myanmar,SEAR,2,5,2
+NPL,Nepal,SEAR,2,5,3
+LKA,Sri Lanka,SEAR,2,5,3
+TLS,Timor-Leste,SEAR,2,5,2
+BRN,Brunei Darussalam,WPR,2,5,10
+KHM,Cambodia,WPR,2,5,3
+COK,Cook Islands,WPR,2,5,10
+FJI,Fiji,WPR,2,5,10
+KIR,Kiribati,WPR,2,5,10
+LAO,Lao People's Democratic Republic,WPR,2,5,2
+MYS,Malaysia,WPR,2,5,3
+MHL,Marshall Islands,WPR,2,5,10
+FSM,Micronesia (Federated States of),WPR,2,5,10
+NRU,Nauru,WPR,2,5,10
+NIU,Niue,WPR,2,5,10
+PLW,Palau,WPR,2,5,10
+PHL,Philippines,WPR,2,5,3
+WSM,Samoa,WPR,2,5,10
+SGP,Singapore,WPR,2,5,10
+SLB,Solomon Islands,WPR,2,5,10
+TON,Tonga,WPR,2,5,10
+TUV,Tuvalu,WPR,2,5,10
+VUT,Vanuatu,WPR,2,5,10
+PRY,Paraguay,AMR,2,10,2
+PER,Peru,AMR,2,10,2
+USA,United States of America,AMR,3,6,9
+GBR,United Kingdom of Great Britain and Northern Ireland,EUR,3,6,9
+CHN,China,WPR,3,6,9
+KOR,Republic of Korea,WPR,3,6,9
+ITA,Italy,EUR,3,7,9
+FRA,France,EUR,4,7,9
+DEU,Germany,EUR,4,7,9
+ESP,Spain,EUR,4,7,9
+TUR,Türkiye,EUR,4,7,9
+RUS,Russian Federation,EUR,4,8,9
+IND,India,SEAR,4,9,9
+AUS,Australia,WPR,4,9,9
+JPN,Japan,WPR,4,6,9
+VNM,Viet Nam,WPR,4,9,9
+DJI,Djibouti,EMR,5,1,5
+MAR,Morocco,EMR,5,2,5
+TUN,Tunisia,EMR,5,2,5
+MEX,Mexico,AMR,5,3,5
+KWT,Kuwait,EMR,5,4,5
+LBN,Lebanon,EMR,5,4,5
+OMN,Oman,EMR,5,4,5
+QAT,Qatar,EMR,5,4,5
+BHR,Bahrain,EMR,5,4,5
+IRN,Iran (Islamic Republic of),EMR,5,4,5
+ISR,Israel,EUR,5,4,5
+CAN,Canada,AMR,5,6,4
+AND,Andorra,EUR,5,8,6
+ARM,Armenia,EUR,5,8,6
+AUT,Austria,EUR,5,8,6
+AZE,Azerbaijan,EUR,5,8,5
+BLR,Belarus,EUR,5,8,6
+BIH,Bosnia and Herzegovina,EUR,5,8,4
+BGR,Bulgaria,EUR,5,8,6
+HRV,Croatia,EUR,5,8,6
+CYP,Cyprus,EUR,5,8,6
+CZE,Czechia,EUR,5,8,6
+EST,Estonia,EUR,5,8,6
+GEO,Georgia,EUR,5,8,5
+KAZ,Kazakhstan,EUR,5,8,5
+KGZ,Kyrgyzstan,EUR,5,8,5
+LVA,Latvia,EUR,5,8,6
+LTU,Lithuania,EUR,5,8,6
+POL,Poland,EUR,5,8,6
+MDA,Republic of Moldova,EUR,5,8,4
+ROU,Romania,EUR,5,8,6
+SRB,Serbia,EUR,5,8,6
+SVK,Slovakia,EUR,5,8,6
+SVN,Slovenia,EUR,5,8,6
+TJK,Tajikistan,EUR,5,8,5
+TKM,Turkmenistan,EUR,5,8,5
+UZB,Uzbekistan,EUR,5,8,5
+ARG,Argentina,AMR,5,10,5
+CHL,Chile,AMR,5,10,6
+URY,Uruguay,AMR,5,10,6
+ALB,Albania,EUR,5,8,6
+BEL,Belgium,EUR,5,7,4
+DNK,Denmark,EUR,5,7,6
+FIN,Finland,EUR,5,7,6
+GRC,Greece,EUR,5,7,6
+HUN,Hungary,EUR,5,8,6
+ISL,Iceland,EUR,5,7,6
+IRL,Ireland,EUR,5,7,6
+LUX,Luxembourg,EUR,5,7,6
+MLT,Malta,EUR,5,7,6
+MCO,Monaco,EUR,5,7,6
+MNE,Montenegro,EUR,5,7,6
+NLD,Netherlands (Kingdom of the),EUR,5,7,6
+MKD,North Macedonia,EUR,5,7,4
+NOR,Norway,EUR,5,7,6
+PRT,Portugal,EUR,5,7,6
+SMR,San Marino,EUR,5,7,9
+SWE,Sweden,EUR,5,7,6
+CHE,Switzerland,EUR,5,7,6
+PRK,Democratic People's Republic of Korea,SEAR,5,6,4
+MNG,Mongolia,WPR,5,8,5
+NZL,New Zealand,WPR,5,9,6
+IDN,Indonesia,SEAR,6,5,9
+SAU,Saudi Arabia,EMR,7,4,9
+ARE,United Arab Emirates,EMR,7,4,9
+THA,Thailand,SEAR,7,9,9
+SYR,Syrian Arab Republic,EMR,8,4,8
+UKR,Ukraine,EUR,9,8,3
+VEN,Venezuela (Bolivarian Republic of),AMR,10,3,3
