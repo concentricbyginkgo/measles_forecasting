@@ -60,7 +60,19 @@ def prepData(defaultLoc = 'input/processed_measles_model_data.csv',
 
     #Load raw measles data
     if not os.path.exists(defaultLoc):
-        os.system('aws s3 cp --profile internal s3://metabiota-modeling-internal/BMGF_measles/model_input/processed_measles_model_data_locf.csv input/processed_measles_model_data.csv')
+        # NOTE: For public repository use, ensure your data files are in the input/ directory
+        # The expected file is: input/processed_measles_model_data.csv
+        # You can generate this file using the data_ingestion_pipeline scripts
+        raise FileNotFoundError(f"""
+        Required data file not found: {defaultLoc}
+        
+        To run this model, you need to:
+        1. Run the data_ingestion_pipeline scripts (1-7) to generate the required input data
+        2. Or place your measles model data file at: {defaultLoc}
+        
+        The file should contain processed measles case data with the following key columns:
+        - ISO3, date, cases_1M, and other outbreak indicators
+        """)
         
     measlesData = pd.read_csv(defaultLoc)
 
