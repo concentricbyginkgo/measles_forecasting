@@ -27,12 +27,22 @@ import json
 
 from matplotlib import pyplot as plt
 from neuralprophet import NeuralProphet, set_log_level, set_random_seed
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, TimeSeriesSplit
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score, f1_score, recall_score, confusion_matrix
-from sklearn.ensemble import GradientBoostingRegressor
+
+from sklearn import ensemble
+from sklearn import linear_model
+from sklearn import neural_network
+from sklearn import svm
+
 from statsforecast import StatsForecast
 from statsforecast.models import AutoETS
 from statsmodels.tsa.seasonal import seasonal_decompose
+
+from xgboost import XGBRegressor
+from catboost import CatBoostRegressor
+from lightgbm import LGBMRegressor
+
 from copy import deepcopy
 from datetime import datetime
 
@@ -42,7 +52,7 @@ import EpiPreprocessor as ep
 warnings.simplefilter(action='ignore', category=FutureWarning)
 set_log_level("ERROR")
 
-preppedCountries = md.prepData()
+#preppedCountries = md.prepData()
 
 expectedDirectories = ['input',
                        'output/figures',
@@ -92,6 +102,15 @@ def hashIt(var):
     md5_hash_obj = hashlib.md5()
     md5_hash_obj.update(varStr)
     return md5_hash_obj.hexdigest()
+
+
+def hashObject(obj):
+    """Hashes arbitrary memory objects"""
+    try:
+        data = pickle.dumps(obj)
+        return hashlib.sha256(data).hexdigest()
+    except Exception as e:
+        raise TypeError(f"Object is not picklable: {e}")
 
 
 
@@ -147,12 +166,14 @@ def prepCurve(simObject,
         for key,duration in indepVars.items():
             df.loc[:,key] = df[key].shift(duration).tolist()
 
-    # Apply preprocessor
+    # Apply preprocessor - fix undefined config variable
+    config = {}  # Initialize config 
     for column,methods in additionalPrep.items():
         try:
             config[column] += methods
         except:
             config[column] = methods
+
     df,preprocessorLog = ep.preprocessDf(df,simObject.preprocessor)
 
     # Set & verify cutoff size after preprocessor application
@@ -221,7 +242,6 @@ def prepCurves(simObject,
     simObject.curves = curves
 
 
-
 def pareIndepVars(simObject):
     """Removes indepVars that did not exist for every data set"""
     
@@ -272,6 +292,7 @@ def prepTTSSets(simObject):
         if simObject.monthsForward == 0:
             endTrim = max(countryData['testSize'] - simObject.testStatsWindow, 0)
             testSize = min(countryData['testSize'], simObject.testStatsWindow)
+            #print("DEBOOO",endTrim,testSize,len(countryData['prepped'][:-endTrim]))
             
             trainDf, testDf = train_test_split(countryData['prepped'][:-endTrim],
                                                shuffle = False,
@@ -304,42 +325,43 @@ def prepTTSSets(simObject):
 
 
 def initModel(simObject,
-              selection,
-              depVar,
               indepVars,
-              projectionMethod,
-              testSize,
-              randomState,
-              preprocessor,
-              additionalPrep,
-              modelArgs,
-              missingVarResponse,
+              depVar,
+              countries,
               prefix,
-              binaryLabelMetric,
+              method,
+              preprocessor,
               useCache,
               testStatsWindow,
               monthsForward,
-              metaRow):
+              metaRow,
+              fuzzReplicates,
+              fuzzStd,
+              randomState = 1337):
     """Generalized model initiation across wrappers"""
 
     indepVars = sortDict(indepVars)
-    validCountries = [country for country in preppedCountries['filters'][selection] if country in preppedCountries['curves'].keys()]
-    simObject.initialCountryCount = len(validCountries)
-    
-    simObject.selection = selection
-    simObject.countries = validCountries
-    simObject.depVar = depVar
     simObject.indepVars = indepVars
-    simObject.testSize = testSize
-    simObject.missingVarResponse = missingVarResponse
-    simObject.projection = projectionMethod
-    simObject.preprocessor = ep.getGoogleSheetConfig(preprocessor)
-    simObject.dropLog = []
-    simObject.binaryLabeller = binaryLabelMetric
+    simObject.depVar = depVar
+    simObject.countries = countries
+    simObject.prefix = prefix
+    simObject.method = method
+    simObject.preprocessor = preprocessor
     simObject.useCache = useCache
     simObject.testStatsWindow = testStatsWindow
     simObject.monthsForward = monthsForward
     simObject.metaRow = metaRow
+    simObject.fuzzReplicates = fuzzReplicates
+    simObject.fuzzStd = fuzzStd
+
+    # Initialize missing attributes that are needed by prepCurves and other functions
+    simObject.dropLog = []
+    simObject.testSize = 12  # default test size
+    simObject.missingVarResponse = 'drop var'  # default behavior
+    simObject.projection = 'AutoETS'  # default projection method
+    simObject.binaryLabeller = lambda x: 1 if x > 1 else 0  # default binary labeller
+    simObject.initialCountryCount = len(countries)
+    simObject.selection = '_'.join(countries) if len(countries) <= 3 else f"{len(countries)}_countries"
 
     if prefix.endswith('/'):
         if not os.path.exists(f'output/tables/{prefix}'):
@@ -350,7 +372,7 @@ def initModel(simObject,
     simObject.prefix = prefix
 
     prepCurves(simObject,
-               additionalPrep)
+               dict())
 
     simObject.multipleCurves = len(simObject.curves) > 1
 
@@ -359,7 +381,7 @@ def initModel(simObject,
     if simObject.dropLog != []:
         print(f'Dropped {simObject.dropLog}')
     
-    simObject.modelArgs = modelArgs
+    simObject.modelArgs = dict()
     
     if randomState == "stochastic":
         randomState += ' ' + hashIt(os.urandom(32))[:10]
@@ -376,7 +398,9 @@ def initModel(simObject,
                              simObject.modelArgs,
                              simObject.mergedFutures.to_csv(index=False),
                              simObject.monthsForward,
-                             simObject.testStatsWindow])
+                             simObject.testStatsWindow,
+                             simObject.fuzzReplicates,
+                             simObject.fuzzStd])
 
     
     simObject.varKeys = sorted(list(simObject.indepVars.keys()))
@@ -392,51 +416,64 @@ def initModel(simObject,
 ############################################################
 
 
-def projectPredictor(dfIn,
+def projectPredictor(country,
                      var,
                      periods,
-                     method = defaultProjectionMethod,
-                     forcePositive = True,
-                     randomState = 1337,
-                     useCache = True):
+                     simObject):
     """Projects a single predictor n periods into the future"""
-    
-    df = dfIn[['ds',var]].copy(deep=True)
+
+    if simObject.projection != 'NeuralProphet autoregression':
+        lag = simObject.indepVars[var]
+    else:
+        lag = 0
+        
+    postLag = periods - lag
+
+    df = simObject.TTSData[country]['trainDf'][['ds',var]].copy(deep=True)
+    if lag != 0:
+        #dateSlice = simObject.curves[country]['curve'][['ds']].iloc[-periods:-postLag].copy(deep=True)
+        #varSlice = simObject.curves[country]['curve'][[var]].iloc[-periods-lag:-periods].copy(deep=True)
+        dateSlice = simObject.curves[country]['curve'][['ds']].iloc[-periods:-postLag].copy(deep=True)
+        varSlice = simObject.curves[country]['prepped'][[var]].iloc[-periods:-periods+lag].copy(deep=True)
+        varSlice.index = dateSlice.index
+        forwardAlignedStub = dateSlice.merge(varSlice,
+                                            left_index = True,
+                                            right_index = True)
+        df = pd.concat([df,forwardAlignedStub],ignore_index=True)
+
     df.columns = ['ds','y']
 
-    if useCache:
+    if simObject.useCache:
         hash = hashIt((df.to_csv(index=False),
                        var,
-                       periods,
-                       forcePositive,
-                       method,
-                       randomState,
-                       method))
+                       postLag,
+                       simObject.randomState,
+                       simObject.projection))
         
         cacheFile = f'store/{hash}Predictor.pkl'
         
         if os.path.exists(cacheFile):
             with open(cacheFile, 'rb') as fileIn:
                 predictor = pickle.load(fileIn)
-            return predictor[-periods:]
+            return predictor[-postLag:]
 
 
     if df['y'].nunique() == 1:
         lastDate = df['ds'].max()
         yValue = df['y'].iloc[0]        
-        newDates = [lastDate + pd.DateOffset(months=i) for i in range(1, periods + 1)]
+        newDates = [lastDate + pd.DateOffset(months=i) for i in range(1, postLag + 1)]
         newRows = pd.DataFrame({'ds': newDates, 'y': yValue})
         result = pd.concat([df, newRows], ignore_index=True)
         result.columns = ['ds',var]
 
     
-    elif method == 'NeuralProphet autoregression':
-        if not str(randomState).startswith('stochastic'):
-            set_random_seed(randomState)
+    elif simObject.projection == 'NeuralProphet autoregression':
+        if not str(simObject.randomState).startswith('stochastic'):
+            set_random_seed(simObject.randomState)
         model = NeuralProphet()
         metrics = model.fit(df,freq='M')
         future = model.make_future_dataframe(df,
-                                             periods=periods,
+                                             periods=postLag,
                                              n_historic_predictions=True)
         forecast = model.predict(future)
         forecast['y'].fillna(forecast['yhat1'],inplace=True)
@@ -445,7 +482,7 @@ def projectPredictor(dfIn,
         result.columns = ['ds',var]
 
     
-    elif method == 'AutoETS':
+    elif simObject.projection == 'AutoETS':
         autoETSInstance = AutoETS(season_length=12)
         df['unique_id'] = 'null'
 
@@ -454,15 +491,19 @@ def projectPredictor(dfIn,
                                       freq = 'MS',
                                       n_jobs=-1)
         statsforecast.fit()
-        result = statsforecast.predict(periods)
+        result = statsforecast.predict(postLag)
         result = result.reset_index()[['ds','AutoETS']]
         result.columns = ['ds',var]
         
     
-    if useCache:
+    if simObject.useCache:
         with open(cacheFile, 'wb') as fileOut:
             pickle.dump(result, fileOut, protocol=pickle.HIGHEST_PROTOCOL)
 
+
+    if lag != 0:
+        result = pd.concat([forwardAlignedStub,result],ignore_index=True)
+        
     return result[-periods:]
     
 
@@ -484,12 +525,11 @@ def getFutureDf(simObject,country):
     else:
         future = trainDf
         for indepVar,delay in simObject.indepVars.items():
-            predictor = projectPredictor(trainDf,
+            predictor = projectPredictor(country,
                                          indepVar,
                                          testSize + simObject.monthsForward,
-                                         method = simObject.projection,
-                                         randomState = simObject.randomState,
-                                         useCache = simObject.useCache)
+                                         simObject)
+            
             toMerge = toMerge.merge(predictor,how='outer')
 
     future = pd.concat([future,toMerge],
@@ -583,6 +623,46 @@ def standardizeOutput(simObject,
     return forecast
 
 
+
+def trainSKLearn(simObject, model):
+    """Sklearn training handler incooporating fuzzing"""
+    if simObject.fuzzReplicates == 0:
+        model.fit(simObject.xTrain, simObject.yTrain)
+                 
+    else:
+        rng = np.random.default_rng(abs(simObject.randomState))
+    
+        # Determine binary columns (only two unique values)
+        binaryMask = np.array([len(np.unique(col)) == 2 for col in simObject.xTrain.T])
+        floatMask = ~binaryMask
+    
+        xReplicates = [simObject.xTrain]
+        yReplicates = [simObject.yTrain]
+    
+        for i in range(simObject.fuzzReplicates):
+            xFuzzed = simObject.xTrain.copy()
+    
+            # Fuzz floats
+            if floatMask.any():
+                floatCols = simObject.xTrain[:, floatMask]
+                base = np.maximum(np.abs(floatCols), 1e-8)
+                noise = rng.normal(0, simObject.fuzzStd, size=floatCols.shape) * base
+                xFuzzed[:, floatMask] += noise
+
+            # Fuzz binaries (flip with some prob)
+            if binaryMask.any():
+                flips = rng.random(size=simObject.xTrain[:, binaryMask].shape) < simObject.fuzzStd
+                xFuzzed[:, binaryMask] = np.logical_xor(simObject.xTrain[:, binaryMask].astype(bool), flips).astype(int)
+    
+            xReplicates.append(xFuzzed)
+            yReplicates.append(simObject.yTrain)
+    
+        xTrainFuzzed = np.vstack(xReplicates)
+        yTrainFuzzed = np.concatenate(yReplicates)
+
+        model.fit(xTrainFuzzed,yTrainFuzzed)
+
+
 ############################################################
 ###  CROSS MODEL EVALUATION FUNCTIONS                    ###
 ############################################################
@@ -591,6 +671,10 @@ def standardizeOutput(simObject,
 def alignEvalData(original,predicted):
     """Takes two iterables of the same length and drops rows where either is missing a value"""
 
+    #print(len(original))
+    #print(len(predicted))
+    #print(original)
+    #print(predicted)
     merged = pd.DataFrame({'original':original,
                            'predicted':predicted}).dropna()
     
@@ -605,8 +689,12 @@ def evaluateCountry(simObject,country):
         countryTTS = simObject.TTSData[country]
         testSize = simObject.curves[country]['testSize']
         testWindow = min(testSize,simObject.testStatsWindow)
-    
-        yTest,yTestPred = alignEvalData(countryTTS['yTest'],countryTTS['yTestPred'][:testWindow])
+
+        ## TODO: some issue is causing an off by one in the length of yTestPred, likely a dropna
+        ## suppressing with length matching for now
+        
+        #yTest,yTestPred = alignEvalData(countryTTS['yTest'],countryTTS['yTestPred'][:testWindow])
+        yTest,yTestPred = alignEvalData(countryTTS['yTest'],countryTTS['yTestPred'][:len(countryTTS['yTest'])])
         yTrain,yTrainPred = alignEvalData(countryTTS['yTrain'],countryTTS['yTrainPred'])
     
         yTest = yTest[:testWindow]
@@ -654,12 +742,16 @@ def evaluateCountry(simObject,country):
         testSize = 0
 
     modelParams = {'method':simObject.method,
+                   'geography':simObject.selection,
+                   'global-local':simObject.initialCountryCount != 1,
                    'predictor projection':simObject.projection,
                    'depVar':simObject.depVar,
                    'indepVars':simObject.indepVars,
-                   'withheld':testSize,
+                   'withheld':testWindow,
                    'random state':simObject.randomState,
-                   'model args':str(simObject.modelArgs)}
+                   'model args':str(simObject.modelArgs),
+                   'fuzz replicates':simObject.fuzzReplicates,
+                   'fuzz std':simObject.fuzzStd}
     
     result.update(modelParams)
     
@@ -752,44 +844,36 @@ def plotTTS(simObject):
 
 class npLaggedTTS:
     def __init__(self,
-                 country,
-                 depVar,
                  indepVars,
-                 prefix = '',
-                 projectionMethod = defaultProjectionMethod,
-                 missingVarResponse = defaultMissingVarResponse,
-                 testSize = 12,
-                 randomState = 1337,
-                 preprocessor = ep.tempConfigURL,
-                 additionalPrep = dict(),
-                 binaryLabelMetric = defaultBinaryMetric,
+                 depVar,
+                 countries,
+                 prefix,
+                 method,
+                 preprocessor,
                  useCache = False,
                  testStatsWindow = 9,
                  monthsForward = 0,
-                 metaRow = 1):
+                 metaRow = 1,
+                 fuzzReplicates = 0,
+                 fuzzStd = 0.01,
+                 randomState = 1337):
         """
         Initialize the model parameters
         """
-
-        self.method = 'NeuralProphet lagged regressors'
-
         initModel(self,
-                  country,
-                  depVar,
-                  indepVars,
-                  projectionMethod,
-                  testSize,
-                  randomState,
-                  preprocessor,
-                  additionalPrep,
-                  dict(),
-                  missingVarResponse,
-                  prefix,
-                  binaryLabelMetric,
-                  useCache,
-                  testStatsWindow,
-                  monthsForward,
-                  metaRow)
+                 indepVars,
+                 depVar,
+                 countries,
+                 prefix,
+                 method,
+                 preprocessor,
+                 useCache,
+                 testStatsWindow,
+                 monthsForward,
+                 metaRow,
+                 fuzzReplicates,
+                 fuzzStd,
+                 randomState)
 
 
     def train(self):
@@ -864,44 +948,36 @@ class npLaggedTTS:
 
 class sklGradientBoostingRegression:
     def __init__(self,
-                 country,
-                 depVar,
                  indepVars,
-                 prefix = '',
-                 projectionMethod = defaultProjectionMethod,
-                 missingVarResponse = defaultMissingVarResponse,
-                 testSize = 12,
-                 randomState = 1337,
-                 preprocessor = ep.tempConfigURL,
-                 additionalPrep = dict(),
-                 binaryLabelMetric = defaultBinaryMetric,
+                 depVar,
+                 countries,
+                 prefix,
+                 method,
+                 preprocessor,
                  useCache = False,
                  testStatsWindow = 9,
                  monthsForward = 0,
-                 metaRow = 1):
+                 metaRow = 1,
+                 fuzzReplicates = 0,
+                 fuzzStd = 0.01,
+                 randomState = 1337):
         """
         Initialize the model parameters
         """
-        
-        self.method = 'Scikit-learn gradient boosted regression'
-
         initModel(self,
-                  country,
-                  depVar,
-                  indepVars,
-                  projectionMethod,
-                  testSize,
-                  randomState,
-                  preprocessor,
-                  additionalPrep,
-                  dict(),
-                  missingVarResponse,
-                  prefix,
-                  binaryLabelMetric,
-                  useCache,
-                  testStatsWindow,
-                  monthsForward,
-                  metaRow)
+                 indepVars,
+                 depVar,
+                 countries,
+                 prefix,
+                 method,
+                 preprocessor,
+                 useCache,
+                 testStatsWindow,
+                 monthsForward,
+                 metaRow,
+                 fuzzReplicates,
+                 fuzzStd,
+                 randomState)
     
     
     def train(self):
@@ -919,11 +995,13 @@ class sklGradientBoostingRegression:
         
         else:
             if not str(self.randomState).startswith('stochastic'):
-                model = GradientBoostingRegressor(random_state=self.randomState)
+                model = ensemble.GradientBoostingRegressor(random_state=self.randomState)
             else:
-                model = GradientBoostingRegressor()
+                model = ensemble.GradientBoostingRegressor()
 
-            model.fit(self.xTrain, self.yTrain)
+            #model.fit(self.xTrain, self.yTrain)
+            trainSKLearn(self,model)
+                         
             forecast = self.mergedFutures.copy(deep=True)
             forecast.loc[:,'yhat1'] = model.predict(self.mergedFutures[self.varKeys].values)
             
@@ -962,69 +1040,190 @@ class sklGradientBoostingRegression:
 
 
 ############################################################
+###  SCIKIT LEARN ENSEMBLER PREP                         ###
+############################################################
+
+
+
+def prepEnsemble(models = 'diverse',
+                 randomState = 1337,
+                 estimators = 100,
+                 stackingModelName = 'stacking regressor',
+                 finalEstimatorName = 'ridgeCV',
+                 passThrough = True,
+                 tscv = TimeSeriesSplit(n_splits=5)):
+    """Preps ensemble models"""
+
+    modelNames = []
+    preppedModels = []
+    hashedModels = []    
+
+    if models == 'diverse':
+        models = [('rf', ensemble.RandomForestRegressor(n_estimators=100, max_depth=3, n_jobs=-1)),
+                  ('svr', svm.LinearSVR(C=1.0, epsilon=0.1, max_iter=10000)),
+                  ('lasso', linear_model.Lasso(alpha=0.01, max_iter=1000))]
+        passThrough = False
+
+    elif models == 'diverse low n':
+        models = [('rf', ensemble.RandomForestRegressor(n_estimators=100, max_depth=3)),
+                  ('hgb', ensemble.HistGradientBoostingRegressor()),
+                  ('ridge', linear_model.RidgeCV(alphas=[0.1, 1.0, 10.0], cv=tscv))]
+        passThrough = True
+        
+    elif models == 'boosted heavy':
+        models = [('xgb', XGBRegressor()),
+                  ('cat', CatBoostRegressor(verbose=0)),
+                  ('lgbm', LGBMRegressor(verbosity=-1))]
+        passThrough = True
+        
+    elif models == 'boosted alpha':
+        models = [('xgb', XGBRegressor()),
+                  ('cat', CatBoostRegressor(verbose=0)),
+                  ('gbr', ensemble.GradientBoostingRegressor)]
+        passThrough = True
+        
+    for model in models:
+        if type(model) is tuple:
+            (modelName, preppedModel) = model
+            try:
+                preppedModel = preppedModel()
+            except:
+                preppedModel = preppedModel
+        else:
+            modelName = str(model)
+            preppedModel = model()
+            
+        try:
+            preppedModel.n_estimators = estimators
+        except:
+            pass
+        try:
+            preppedModel.random_state = randomState
+        except:
+            pass
+            
+        modelNames.append(modelName)
+        preppedModels.append(preppedModel)
+
+    combined = sorted(zip(modelNames, preppedModels), key=lambda x: x[0])
+    modelNames, preppedModels = zip(*combined)
+    baseModels = [(name,model) for name, model in zip(modelNames,preppedModels)]
+
+    
+    ensemblingModel = {'stacking regressor': ensemble.StackingRegressor,
+                       'voting regressor': ensemble.VotingRegressor}[stackingModelName]
+
+    finalEstimator = {'ridge': linear_model.Ridge(),
+                      'ridgeCV': linear_model.RidgeCV(),
+                      'elastic net': linear_model.ElasticNet(),
+                      'MLP': neural_network.MLPRegressor(),
+                      'SVR': svm.SVR()}[finalEstimatorName]
+
+    model = ensemblingModel(estimators = baseModels,
+                            final_estimator = finalEstimator,
+                            passthrough = passThrough)
+
+    modelParams = {'model names': modelNames,
+                   'stacking model': stackingModelName,
+                   'final estimator': finalEstimatorName,
+                   'passthrough': passThrough}
+
+    modelStr = json.dumps(modelParams)
+    
+    stateHash = hashObject(model)
+
+    return model,modelStr,stateHash
+
+
+
+############################################################
 ###  SCIKIT LEARN GENERIC ML WRAPPER TTS CLASS           ###
 ############################################################
 
 
+
 class sklGeneric:
     def __init__(self,
-                 country,
+                 countries,              # Can be single string or list
                  depVar,
                  indepVars,
-                 prefix = '',
-                 projectionMethod = defaultProjectionMethod,
-                 missingVarResponse = defaultMissingVarResponse,
-                 testSize = 12,
-                 randomState = 1337,
-                 modelArgs = dict(),
-                 preprocessor = ep.tempConfigURL,
-                 additionalPrep = dict(),
-                 initialized = False,
-                 binaryLabelMetric = defaultBinaryMetric,
+                 modelArgs = None,       # For cluster_dev_2 compatibility
+                 randomState = 1337,     # For cluster_dev_2 compatibility  
+                 preprocessor = None,
+                 prefix = 'run',
+                 metaRow = 1,
                  useCache = False,
                  testStatsWindow = 9,
                  monthsForward = 0,
-                 metaRow = 1):
+                 fuzzReplicates = 0,
+                 fuzzStd = 0.01,
+                 ensembleModels = [],
+                 ensembleStacker = 'stacking regressor',
+                 ensembleEstimator = 'ridgeCV',
+                 ensemblePassthrough = True):
         """
         Initialize the model parameters
         """
         
-        self.method = f'Scikit-learn generic: {modelArgs["modelName"]}'
-        self.initialized = initialized
-        
+        # Handle single country string (cluster_dev_2 style) vs country list (main style)
+        if isinstance(countries, str):
+            countries = [countries]
+            
+        # Set default preprocessor if none provided
+        if preprocessor is None:
+            import EpiPreprocessor as ep
+            preprocessor = ep.getGoogleSheetConfig(ep.tempConfigURL)
+            
+        # Initialize the model first
         initModel(self,
-                  country,
-                  depVar,
-                  indepVars,
-                  projectionMethod,
-                  testSize,
-                  randomState,
-                  preprocessor,
-                  additionalPrep,
-                  modelArgs,
-                  missingVarResponse,
-                  prefix,
-                  binaryLabelMetric,
-                  useCache,
-                  testStatsWindow,
-                  monthsForward,
-                  metaRow)
+                 indepVars,
+                 depVar,
+                 countries,
+                 prefix,
+                 'sklGeneric',  # method name
+                 preprocessor,
+                 useCache,
+                 testStatsWindow,
+                 monthsForward,
+                 metaRow,
+                 fuzzReplicates,
+                 fuzzStd,
+                 randomState)
 
-        
+        # Handle ensemble models (from main branch)
+        if ensembleModels != []:
+            preppedModel, modelName, modelState = prepEnsemble(models = ensembleModels,
+                                                               randomState = randomState,
+                                                               stackingModelName = ensembleStacker,
+                                                               finalEstimatorName = ensembleEstimator,
+                                                               passThrough = ensemblePassthrough)
+            self.modelArgs = {'model':preppedModel,
+                             'modelName':modelName}
+            self.randomState = hash(modelState)
+            self.method = f'Scikit-learn generic: {modelName}'
+            self.initialized = True
+        else:
+            # Handle direct model specification (cluster_dev_2 style)
+            if modelArgs is not None:
+                self.modelArgs = modelArgs
+                self.method = f'Scikit-learn generic: {modelArgs["modelName"]}'
+                self.initialized = False
+            else:
+                raise ValueError("Must provide either modelArgs or ensembleModels")
+            self.randomState = randomState
 
     
     def train(self):
         """
         Trains the model, loading from cache if previously trained
         """
-        
+            
         if not self.initialized:
             if not str(self.randomState).startswith('stochastic'):
                 try:
                     set_random_seed(self.randomState)
                     model = self.modelArgs['model'](random_state=self.randomState)
                 except:
-                    #self.randomState = 'deterministic'
                     model = self.modelArgs['model']()
             else:
                 model = self.modelArgs['model']()
@@ -1037,7 +1236,9 @@ class sklGeneric:
                 self.trained = pickle.load(fileIn)
         
         else:
-            model.fit(self.xTrain, self.yTrain)
+            #model.fit(self.xTrain, self.yTrain)
+            trainSKLearn(self,model)
+            
             forecast = self.mergedFutures.copy(deep=True)
             forecast.loc[:,'yhat1'] = model.predict(self.mergedFutures[self.varKeys].values)
             
