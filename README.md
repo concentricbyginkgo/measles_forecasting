@@ -170,7 +170,6 @@ Additional tools for model evaluation and comparison are available in `model_com
 ## Notes for Public Use
 
 This repository has been prepared for public use:
-- ✅ **No AWS dependencies** - Removed S3 data pulls
 - ✅ **Local data processing** - All data sources use local files
 - ✅ **Complete environment specification** - Dependencies clearly defined
 - ✅ **Comprehensive documentation** - Updated README and comments
