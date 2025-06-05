@@ -12,7 +12,7 @@ import pandas as pd
 import country_converter as coco
 import os
 
-
+validityColumn = 'cases_1M'
 
 
 ##########################################
@@ -53,11 +53,15 @@ def prepFilters(df,validCountries):
 
 def prepData(defaultLoc = 'input/processed_measles_model_data.csv',
              cutoffsLoc = 'input/cutoff_date_by_country.csv',
+             cutoffsCol = 'cutoff_date',
              trendsLoc = 'input/CountryMeasles2010-2024.csv',
              fillMissingCutoffs = True):
     """Loads currently available data"""
 
-    #Load raw measles data    
+    #Load raw measles data
+    if not os.path.exists(defaultLoc):
+        os.system('aws s3 cp --profile internal s3://metabiota-modeling-internal/BMGF_measles/model_input/processed_measles_model_data_locf.csv input/processed_measles_model_data.csv')
+        
     measlesData = pd.read_csv(defaultLoc)
 
     #Merge google trends data
@@ -86,9 +90,11 @@ def prepData(defaultLoc = 'input/processed_measles_model_data.csv',
 
     #Load cutoffs data
     try:
-        cutoffsDf = pd.read_csv(cutoffsLoc)
-        cutoffsDf.cutoff_date = pd.to_datetime(cutoffsDf.cutoff_date)
-        cutoffs = {row['ISO3']:row['cutoff_date'] for index, row in cutoffsDf.iterrows()}
+        cutoffsDf = pd.read_csv(cutoffsLoc).dropna()
+        cutoffsDf[cutoffsCol] = pd.to_datetime(cutoffsDf[cutoffsCol],
+                                               format='mixed',
+                                               dayfirst=False)
+        cutoffs = {row['ISO3']:row[cutoffsCol] for index, row in cutoffsDf.iterrows()}
     except:
         print("No cutoff dates file found, continuing with passed int cutoff method")
         cutoffs = dict()
@@ -119,7 +125,7 @@ def getRankedCountries(df):
     """Sorts countries by number of outbreaks, dropping countries with no outbreaks"""
     nCountries = df['ISO3'].nunique()
     listed = df.groupby(['ISO3']).num_outbreak_20_cuml_per_M.max().sort_values(ascending=False)
-    listed = listed[listed > 0]
+    #listed = listed[listed > 0]
     
     print(f'{len(listed)}/{nCountries} included countries found with noted outbreaks.')
     
@@ -132,10 +138,15 @@ def getCountryCurve(df,
     """Prepares one country data set for fitting algorithm"""
     df = df[df.ISO3 == country].copy(deep=True)
     df.date = pd.to_datetime(df.date)
+    df = df.sort_values(by='date',ascending=True)
+    df = df.reset_index()
     
     df.rename({'date':'ds'},
               axis=1,
               inplace = True)
+    
+    lastValid = df[validityColumn].last_valid_index()
+    df = df.loc[:lastValid]
     
     return df
 

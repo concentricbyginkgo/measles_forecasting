@@ -2,8 +2,8 @@
 ###   fitOne.PY                                                         ###
 ###      * RUNS FORECAST MODEL FROM METADATA FILE SPECIFICATIONS        ###
 ###      * WRITES FORECAST TABLE AND MODEL PERFORMANCE SCORE            ###
+###      * WRITES TO RUN_NAME DIRECTORY IN S3                           ###
 ###                                                                     ###
-###            Contact: Amanda Meadows ~ ameadows@ginkgobioworks.com    ###
 ###########################################################################
 
 import pandas as pd
@@ -27,10 +27,6 @@ from sklearn.svm import SVR
 from catboost import CatBoostRegressor
 from xgboost.sklearn import XGBRegressor
 from lightgbm import LGBMRegressor
-
-# metadata: a file containing the fields 'country', 'model', 'predictor', 'ROW_ID', 'environmentalArg', 'Seed', and 'Rep'
-# ROW: The ROW_ID from the metadata to run
-# run_name: a subdirectory in output/ will be created with this name where all run-specific output will be written
 
 def fitOne(metadata, ROW, run_name):
     
@@ -101,7 +97,11 @@ def fitOne(metadata, ROW, run_name):
 
     if model_name == 'LGBMR':
         model = {'modelName': 'LGBMRegressor','model':LGBMRegressor}
-        
+    
+    # ENSEMBLE MODEL SUPPORT - New functionality
+    if model_name in ['diverse', 'diverse low n', 'boosted heavy', 'boosted alpha']:
+        model = {'ensembleModels': model_name}  # Special flag for ensemble models
+    
     
     try:
         if type(model) is not dict:
@@ -111,7 +111,17 @@ def fitOne(metadata, ROW, run_name):
                           randomState = randomState,
                           metaRow = meta_Row,
                           prefix = run_name)
+        elif 'ensembleModels' in model:
+            # Handle ensemble models using sklGeneric with ensembleModels parameter
+            mlRun = mm.sklGeneric(country,
+                                  'cases_1M',
+                                  indepVars = indepVars,
+                                  ensembleModels = model['ensembleModels'],
+                                  randomState = randomState,
+                                  metaRow = meta_Row,
+                                  prefix = run_name)
         elif type(model) is dict:
+            # Handle single models using sklGeneric with modelArgs parameter
             mlRun = mm.sklGeneric(country,
                                   'cases_1M',
                                   indepVars = indepVars,
@@ -138,9 +148,10 @@ def fitOne(metadata, ROW, run_name):
                 return
         else:
             #raise e
-         if not os.path.exists(f'output/{run_name}/scores/'):
-            os.makedirs(f'output/{run_name}/scores/')           
-         result = nullResult
-         result = pd.DataFrame(data=result, index=[0])
-         result.to_csv(f'output/{run_name}/scores/{meta_Row}_Summary.csv',index=False)
+            if not os.path.exists(f'output/{run_name}/scores/'):
+                os.makedirs(f'output/{run_name}/scores/')           
+            result = nullResult
+            result = pd.DataFrame(data=result, index=[0])
+            result.to_csv(f'output/{run_name}/scores/{meta_Row}_Summary.csv',index=False)
+
     

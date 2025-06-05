@@ -13,6 +13,7 @@ import numpy as np
 from neuralprophet import NeuralProphet, set_log_level, set_random_seed
 from scipy.interpolate import interp1d
 from pprint import pprint
+from copy import deepcopy
 
 import warnings
 import hashlib
@@ -74,7 +75,7 @@ def backFillPP(dfIn,column):
 
 
 def forwardFillPP(dfIn,column):
-    """Fills missing entries at start of df with first valid entry"""
+    """Fills missing entries at end of df with first valid entry"""
     df = dfIn.copy(deep=True)
     df[column] = df[column].ffill(limit_area='outside')
     return df
@@ -186,8 +187,8 @@ def interpolateViaPP(dfIn,column,method):
         df[column] = fillGapsPP(df,column)[column]
         return df
 
-    x = df['ds'].values.astype(np.int64) // 10**9
-    
+    x = df['ds'].view('int64') // 10**9
+
     mask = df[column].notna()
     xValid = x[mask]
     yValid = df.loc[mask, column]
@@ -198,9 +199,11 @@ def interpolateViaPP(dfIn,column,method):
                         fill_value='extrapolate')
 
     interped = pd.Series(interpFx(x), index=df.index)
-    df[column] = df[column].fillna(interped)
     
+    df.loc[:,column] = df.loc[:,column].fillna(interped)
     return df
+
+
     
 
 def removeFlagPP(dfIn,column,flagValue):
@@ -309,8 +312,59 @@ def remapByPP(dfIn,column,json):
     df[column] = df[column].astype(str).apply(mapValue)
 
     return df
-        
 
+
+def checkCoveragePP(dfIn,column,json):
+    """NaNs out a column if the coverage is below a certain percent"""
+    df = dfIn.copy(deep=True)
+    params = ast.literal_eval(json)
+
+    if 'tail' in params.keys():
+        testDf = df.tail(int(params['tail']))
+    else:
+        testDf = df
+
+    if testDf[column].isna().mean() >= float(params['proportion']):
+        df[column] = np.nan
+
+    return df
+
+
+def getLongestNanStretch(df,column):
+    """Calculates the length of the longest contiguous stretch of NaN values in a pandas Series"""
+    if df[column].empty:
+        return 0
+
+    isNanSeries = df[column].isnull()
+
+    if not isNanSeries.any():
+        return 0
+        
+    if isNanSeries.all():
+        return len(df)
+
+    grouper = (~isNanSeries).cumsum()
+    nanStretchLengths = isNanSeries.groupby(grouper).cumsum()
+    maxStretch = nanStretchLengths.max()
+    
+    return int(maxStretch)
+
+
+def checkGapsPP(dfIn,column,json):
+    """NaNs out a column if the coverage is below a certain percent"""
+    df = dfIn.copy(deep=True)
+    params = ast.literal_eval(json)
+
+    if 'tail' in params.keys():
+        testDf = df.tail(int(params['tail']))
+    else:
+        testDf = df
+
+    if getLongestNanStretch(testDf,column) >= float(params['length']):
+        df[column] = np.nan
+
+    return df
+   
 
 ##########################################
 ###   ENCODER OPERATIONS               ###
@@ -376,11 +430,15 @@ modifiableMethods = {'interpolate_via_':interpolateViaPP,
                      'drop_tailing_':dropTailingPP,
                      'neuralprophet_seed_':neuralProphetSeedPP,
                      'discard_last_':discardLastPP,
-                     'remap_by_':remapByPP}
+                     'remap_by_':remapByPP,
+                     'check_coverage_':checkCoveragePP,
+                     'check_gaps_':checkGapsPP}
 
 
 baseEncoders = {'encode_ordinal':encodeOrdinal,
                 'encode_onehot':encodeOneHot}
+
+
 
 
 ##########################################
@@ -389,6 +447,29 @@ baseEncoders = {'encode_ordinal':encodeOrdinal,
 
 
 def getPreprocessorMethods(column,config):
+    """Given a column name and config file, returns a dict of operation names and functions"""
+    names = config[column]
+    methods = dict()
+    for name in names:
+        found = False
+        try:
+            methods[name] = fixedMethods[name]
+            found = True
+        except:
+            for key in modifiableMethods.keys():
+                if name.startswith(key):
+                    arg = name.replace(key,'')
+                    methods[name] = (lambda k=key, a=arg[:]: lambda x, y: modifiableMethods[k](x, y, a))()
+                    found = True
+                    break
+        if not found:
+            print(f'Method "{name}" not found for column "{column}", ignoring...')
+            
+    return methods
+
+
+
+def getPreprocessorMethodsOld(column,config):
     """Given a column name and config file, returns a dict of operation names and functions"""
     names = config[column]
     methods = dict()
@@ -412,6 +493,7 @@ def getPreprocessorMethods(column,config):
     return methods
 
 
+
     
 def preprocessDf(dfIn,
                  config,
@@ -430,7 +512,7 @@ def preprocessDf(dfIn,
             if verbose:
                 print(column,operationName)
             loggedTransformations[column].append(operationName)
-            df = fx(df,column).copy(deep=True)
+            df = fx(df,column)
 
     return df, loggedTransformations
 
