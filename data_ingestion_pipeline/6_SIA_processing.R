@@ -24,7 +24,7 @@ setwd(working_drive)
 local_dat_drive <- "data_ingestion_pipeline/local_data/"
 
 # 2) Read from excel and clean data
-groad <- as.data.table(read_excel(paste0(local_dat_drive, "groads-v1-source-and-road-length-by-country.xlsx"), sheet = "Source & Length", range = c("A7:B221")))
+SIA_dat <- fread(paste0(local_dat_drive, "V_SIA_MAIN_MR.csv"))
 SIA_dat[, .N, by = .(INTERVENTION)]
 SIA_dat[, .N, by = .(STATUS)]
 #SIA_dat[STATUS == "Done" & is.na(END_DATE), ]
