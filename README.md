@@ -75,6 +75,8 @@ The repository includes four main Python modules:
 
 ### Alpha Model (`alpha_model/`)
 
+The alpha model is an earlier implementaiton of the Core Python Modules prior to methodological advancements developed for the beta model release. All model selection and forward projection scripts present here are still functional, but could be expanded to include some of the advanced methods added to the Core Python Modules for the beta release. 
+
 #### Grid Search Application (`RunFromMetadata.ipynb`)
 Performs systematic parameter search to find optimal models for each country.
 
@@ -107,6 +109,8 @@ Generates future forecasts using pre-selected optimal parameters.
 - Future projections: `output/tables/<ROW_ID>_<ISO3>_Projection.csv`
 
 ### Beta Model (`beta_model/`)
+
+The beta release includes updates to the Core Python Modules that enable model ensembling and other advanced features. 
 
 Advanced model development and comparison:
 
