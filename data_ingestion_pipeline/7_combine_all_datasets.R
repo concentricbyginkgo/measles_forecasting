@@ -129,6 +129,15 @@ MeaslesDat[, mnths_since_SIA := ifelse(SIA_status == "yes", 0, mnths_since_SIA),
 MeaslesDat[, mnths_since_SIA := ifelse(sia_grp == 1 & all(SIA_status == "no"), NA_integer_, mnths_since_SIA), by = .(ISO3)]
 
 # =============================================================================
+# MERGE CLUSTER DATA: Country cluster assignments
+# =============================================================================
+
+clusterDat <- fread("data_ingestion_pipeline/provided_data/clusterDat.csv", na.strings = "")
+MeaslesDat[clusterDat, cluster := i.cluster, on = .(ISO3)]
+MeaslesDat[clusterDat, cluster_region := i.cluster_region, on = .(ISO3)]
+MeaslesDat[clusterDat, cluster_redrawn := i.cluster_redrawn, on = .(ISO3)]
+
+# =============================================================================
 # EXPORT FINAL COMBINED DATASET
 # =============================================================================
 
