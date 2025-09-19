@@ -1,5 +1,5 @@
 ###########################################################################
-###   EPIPREPROCESSIR.PY                                                ###
+###   EPIPREPROCESSOR.PY                                                ###
 ###      * APPLIES AND LOGS PREPROCESSOR TRANSFORMATIONS TO DATA        ###
 ###      * USES LOCAL OR REMOTE CONFIG FILES LISTING OPS BY COLUMN      ###
 ###                                                                     ###
@@ -468,32 +468,6 @@ def getPreprocessorMethods(column,config):
     return methods
 
 
-
-def getPreprocessorMethodsOld(column,config):
-    """Given a column name and config file, returns a dict of operation names and functions"""
-    names = config[column]
-    methods = dict()
-    for name in names:
-        found = False
-        try:
-            method = fixedMethods[name]
-            found = True
-        except:
-            for key,modifiableMethod in modifiableMethods.items():
-                if name.startswith(key):
-                    arg = name.replace(key,'')
-                    method = lambda x,y: modifiableMethod(x,y,arg[:])
-                    found = True
-                    break
-        if found:
-            methods[name] = method 
-        else:
-            print(f'Method "{name}" not found for column "{column}", ignoring...')
-            
-    return methods
-
-
-
     
 def preprocessDf(dfIn,
                  config,
@@ -514,6 +488,7 @@ def preprocessDf(dfIn,
             loggedTransformations[column].append(operationName)
             df = fx(df,column)
 
+
     return df, loggedTransformations
 
 
@@ -521,7 +496,6 @@ def preprocessDf(dfIn,
 def getEncoderMethod(encoderAlignment,config):
     """Given an ML method name, returns a prepped encoder method"""
     if encoderAlignment not in config.keys():
-        #raise Exception(f'Country encoder not found for method: "{encoderAlignment}"')
         print(f'Country encoder not found for method: "{encoderAlignment}", using default')
         methodName = 'encode_onehot_on_ID'
     else:
@@ -531,7 +505,6 @@ def getEncoderMethod(encoderAlignment,config):
             methodName = 'pass_unchanged'
             print("No encoding method passed, this will likely fail for most ML libraries.")
         
-    #print(f'Encoding by method: "{methodName}"')
     if methodName == 'pass_unchanged':
         method = None
     else:
@@ -560,12 +533,3 @@ def encodeMergedDf(dfIn,
         newCols = []
 
     return df, newCols, methodName
-
-
-
-
-
-
-
-
-
