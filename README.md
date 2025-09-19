@@ -7,20 +7,18 @@ This repository provides a complete pipeline for measles outbreak forecasting us
 
 ### Quick Start
 1. **Data Processing**: Run scripts 1-7 in `data_ingestion_pipeline/` 
-2. **Environment Setup**: Create Python environment using `environment.yml`
-3. **Model Training**: Use `alpha_model/RunFromMetadata.ipynb` for grid search or `alpha_model/RunAlphaModels.ipynb` for forecasting
-4. **Beta Models**: Explore advanced methods in `beta_model/BetaMethodsComparison.ipynb`
+2. **Grid Search**: Use R scripts in `grid_search/` to identify optimal predictors
+3. **Environment Setup**: Create Python environment with required packages (see Environment Setup section)
+4. **Model Training**: Use `model/FinalModelStage1Runs.ipynb` or `model/RunFromFunction.ipynb` for model training and forecasting
 
 ## Repository Structure
 
 ```
 measles_forecasting/
 ├── data_ingestion_pipeline/   # R scripts for data processing (1-7)
-├── model/                     # Core Python modules
-├── alpha_model/               # Alpha model notebooks and configs
-├── beta_model/                # Beta model development
-├── model_comparison_pipeline/ # Model evaluation tools
-└── other_deliverables/        # Documentation and data inventory
+├── grid_search/               # R scripts for predictor selection and metadata generation
+├── model/                     # Core Python modules and Jupyter notebooks
+└── model_comparison_pipeline/ # Model evaluation and visualization tools
 ```
 
 ## Data Ingestion Pipeline
@@ -41,7 +39,21 @@ The data ingestion pipeline contains **7 R scripts** that process raw case and p
 - Scripts 2 & 3 process gridded climate data (.nc files) - **extremely compute and memory intensive**
 - Climate processing is parallelized - tune parameters for your machine specifications
 - Manual downloading of raw datasets required (links provided in scripts)
-- Complete data inventory available in `other_deliverables/data_inventory/`
+
+## Grid Search Pipeline
+
+The `grid_search/` directory contains R scripts for predictor selection and model metadata generation:
+
+### Scripts Overview
+- **`univariate_country_test.R`** - Performs univariate analysis to identify significant predictors by country
+- **`create_final_mod_metadata.R`** - Generates metadata for model configurations based on predictor analysis
+
+### Key Outputs
+- **`univariate_country_results.csv`** - Results of univariate predictor analysis
+- **`correlation_results.csv`** - Correlation analysis between predictors
+- **`metadata_example.csv`** - Example metadata format for model configuration
+
+This pipeline helps identify the most relevant predictors for each country before running the full machine learning models.
 
 ## Forecasting Models
 
@@ -49,73 +61,61 @@ The data ingestion pipeline contains **7 R scripts** that process raw case and p
 
 **Recommended**: Use mamba/conda with Python 3.11
 
-#### Option 1: Using the provided environment file
-```bash
-conda env create -f alpha_model/environment.yml
-conda activate measles_forecasting
-```
-
-#### Option 2: Manual installation
 ```bash
 mamba create -n measles_forecasting python=3.11
 mamba activate measles_forecasting
 mamba install neuralprophet scikit-learn statsmodels jupyterlab pandas numpy \
               geopandas multiprocess matplotlib scipy country_converter seaborn \
-              xgboost catboost lightgbm
+              xgboost catboost lightgbm ordpy
 ```
 
 ### Core Python Modules (`model/`)
 
-The repository includes four main Python modules:
+The repository includes several Python modules and Jupyter notebooks:
 
+#### Core Modules
 - **`MeaslesDataLoader.py`** - Data loading and preprocessing
 - **`MeaslesModelEval.py`** - Model evaluation and cross-validation  
 - **`EpiPreprocessor.py`** - Epidemiological data preprocessing
 - **`fitOne.py`** - Individual model fitting functions
+- **`EpiAnnealer.py`** - Advanced optimization and hyperparameter tuning
+- **`ModelSweeps.py`** - Mass model comparison using multiple ML algorithms
+- **`LossFunctions.py`** - Custom loss functions for model evaluation
+- **`SeasonalityMetrics.py`** - Seasonality analysis and trend detection
 
-### Alpha Model (`alpha_model/`)
+#### Jupyter Notebooks
+- **`FinalModelStage1Runs.ipynb`** - Primary notebook for model training and forecasting
+- **`RunFromFunction.ipynb`** - Alternative model training workflow using metadata-driven approach
+- **`TTSEval.ipynb`** - Time series evaluation and testing
 
-The alpha model is an earlier implementaiton of the Core Python Modules prior to methodological advancements developed for the beta model release. All model selection and forward projection scripts present here are still functional, but could be expanded to include some of the advanced methods added to the Core Python Modules for the beta release. 
+### Model Training and Forecasting
 
-#### Grid Search Application (`RunFromMetadata.ipynb`)
-Performs systematic parameter search to find optimal models for each country.
+The main workflow uses the Jupyter notebooks in the `model/` directory:
 
-**Required metadata fields:**
-- **`ROW_ID`**: Unique identifier for parameter set
-- **`model`**: ML model type (`XGBRegressor`, `CatBoost`, `gradient boosting`, `Random Forest`, `Bagging regressor`)
-- **`predictor`**: Primary predictor variables and lags `{'predictor': lag}`
-- **`environmentalArg`**: Environmental predictors `{'predictor': lag}`
-- **`country`**: ISO3 country code or geographic grouping
-- **`Seed`**: Random seed for reproducibility
+#### Primary Notebook (`FinalModelStage1Runs.ipynb`)
+The main notebook for model training and forecasting. This notebook integrates all the core modules to:
 
-**Usage:**
-```python
-for i in range(len(meta_df)):
-    fi.fitOne(metadata=meta_df, ROW=i, run_name='sweep_20250106')
-```
+- Load and preprocess data using `MeaslesDataLoader.py`
+- Perform model selection using `ModelSweeps.py` 
+- Evaluate models using `MeaslesModelEval.py`
+- Generate forecasts and projections
 
-**Outputs:**
-- Summary statistics: `output/<run_name>/scores/<ROW_ID>_Summary.csv`
-- Projections: `output/<run_name>/tables/<ROW_ID>_<ISO3>_Projection.csv`
+#### Metadata-Driven Training (`RunFromFunction.ipynb`)
+Alternative workflow that uses metadata from the grid search pipeline to systematically train models:
 
-#### Forward Projection (`RunAlphaModels.ipynb`)
-Generates future forecasts using pre-selected optimal parameters.
+- Reads metadata configurations from `grid_search/metadata_example.csv`
+- Uses `fitOne.py` functions for individual model training
+- Supports batch processing of multiple model configurations
+- Integrates with the grid search pipeline outputs
 
-**Requirements:**
-- `input/alpha_model_by_country.csv` - Parameter specifications per country
-- Trained models from grid search
+#### Time Series Evaluation (`TTSEval.ipynb`)
+Specialized notebook for time series model evaluation and testing.
 
-**Outputs:**
-- Future projections: `output/tables/<ROW_ID>_<ISO3>_Projection.csv`
-
-### Beta Model (`beta_model/`)
-
-The beta release includes updates to the Core Python Modules that enable model ensembling and other advanced features. 
-
-Advanced model development and comparison:
-
-- **`BetaMethodsComparison.ipynb`** - Comparative analysis of modeling approaches
-- **`beta_run_specs.csv`** - Configuration file for beta model parameters
+#### Advanced Features
+- **Hyperparameter optimization** via `EpiAnnealer.py`
+- **Seasonality analysis** using `SeasonalityMetrics.py`
+- **Custom loss functions** defined in `LossFunctions.py`
+- **Multi-algorithm comparison** through `ModelSweeps.py`
 
 ## Model Features
 
@@ -163,13 +163,17 @@ All projection files contain:
 
 ## Model Comparison Pipeline
 
-Additional tools for model evaluation and comparison are available in `model_comparison_pipeline/`.
+The `model_comparison_pipeline/` directory contains tools for evaluating and comparing model performance:
+
+- **`model_comparison_viz.Rmd`** - R Markdown document for generating model comparison visualizations
+- **`country_output/`** - Individual country-specific model outputs (e.g., NGA.csv, UKR.csv)
+- **`summary_output/`** - Aggregated summary tables (summaryTable.csv)
+- **Documentation** - Detailed pipeline documentation (PDF)
 
 ## Documentation
 
-- **Data inventory**: `other_deliverables/data_inventory/`
 - **Social data README**: `data_ingestion_pipeline/README_Social_Series.txt`
-- **Project documentation**: `other_deliverables/`
+- **Model comparison documentation**: `model_comparison_pipeline/INV-059412_GinkgoBiosecurity_Output 7_Model Comparison Pipeline Documentation_12092024.pdf`
 
 ## Notes for Public Use
 
