@@ -2,8 +2,8 @@
 ###   MEASLESMODELEVAL.PY                                               ###
 ###      * ML WRAPPER MODULE FOR STANDARDIZED EVALUATIONS               ###
 ###      * INTEGRATES NEURALPROPHET AND SKL METHODS                     ###
-###      * CAN TAKE GENERIC SKL CLASSES IF PASS IN PYTHON               ###
-###      * USES NEURAL PROPHET TO FORWARD PROJECT SEASONAL PREDICTORS   ###
+###      * CAN TAKE GENERIC SKL CLASSES IF PASSED IN PYTHON             ###
+###      * USES AUTOETS TO FORWARD PROJECT SEASONAL PREDICTORS          ###
 ###      * IMPLEMENTS GLOBAL-LOCAL MODELLING (MULTI GEOGRAPHY)          ###
 ###                                                                     ###
 ###             Contact: James Schlitt ~ jschlitt@ginkgobioworks.com    ###
@@ -52,7 +52,7 @@ import EpiPreprocessor as ep
 warnings.simplefilter(action='ignore', category=FutureWarning)
 set_log_level("ERROR")
 
-#preppedCountries = md.prepData()
+preppedCountries = md.prepData()
 
 expectedDirectories = ['input',
                        'output/figures',
@@ -85,12 +85,13 @@ def setCutoffSize(simObject,
     """Given a df and a cutoff date, returns the cutoff size"""
     if simObject.monthsForward != 0:
         return 0
-            
+
     if cutoff != 'not passed':
         testSize = len(df[df.ds >= cutoff])
 
-    #if testSize < minAcceptableTestMonths:
-        #raise Exception("Insufficent test data for analysis.")
+
+    if testSize < minAcceptableTestMonths:
+        raise Exception("Insufficent test data for analysis.")
 
     return testSize
 
@@ -139,8 +140,10 @@ def prepCurve(simObject,
               dfIn,
               cutoff,
               testSizeIn,
-              additionalPrep):
+              additionalPrep,
+              country):
     """Prepares one curve df, paring out all unnecessary attributes"""
+    
     # Loads preprocessor config and merges manual args
     df = dfIn.copy(True)
 
@@ -153,21 +156,15 @@ def prepCurve(simObject,
     # Create local copy of indepVars for per-experiment modification
     indepVars = deepcopy(simObject.indepVars)
     
-    #if len(df[simObject.depVar].dropna()) <= max(testSize,minAcceptableTotalMonths): #or df[depVar].nunique() < testSize*2:
-       #raise Exception("Insufficient number of unique, valid measurements of the dependent variable.")
+    if len(df[simObject.depVar].dropna()) <= max(testSize,minAcceptableTotalMonths): #or df[depVar].nunique() < testSize*2:
+        raise Exception("Insufficient number of unique, valid measurements of the dependent variable.")
     
     # Pare down df to only needed and present vars
     indepVars = {key:duration for key,duration in indepVars.items() if key in df.columns}
     indepVars = {key:duration for key,duration in indepVars.items() if len(df[key].dropna()) > 0}
     df = df[['ds',simObject.depVar]+list(indepVars.keys())]
 
-    # Apply lagged regressors
-    if simObject.method != 'NeuralProphet lagged regressors':
-        for key,duration in indepVars.items():
-            df.loc[:,key] = df[key].shift(duration).tolist()
-
-    # Apply preprocessor - fix undefined config variable
-    config = {}  # Initialize config 
+    # Apply preprocessor
     for column,methods in additionalPrep.items():
         try:
             config[column] += methods
@@ -175,6 +172,16 @@ def prepCurve(simObject,
             config[column] = methods
 
     df,preprocessorLog = ep.preprocessDf(df,simObject.preprocessor)
+    simObject.unshifted[country] = df.copy(deep=True)
+    df.to_csv("shifted_temp.csv")
+
+    
+    # Apply lagged regressors
+    if simObject.method != 'NeuralProphet lagged regressors':
+        for key,duration in indepVars.items():
+            df.loc[:,key] = df[key].shift(duration).tolist()
+
+    df = df.dropna()
 
     # Set & verify cutoff size after preprocessor application
     testSize = setCutoffSize(simObject,
@@ -182,8 +189,9 @@ def prepCurve(simObject,
                              cutoff,
                              testSize)
 
-    #if len(df) <= max(min(simObject.testStatsWindow,testSize)*2,minAcceptableTotalMonths):
-        #raise Exception("Insufficient training or testing data following the application of preprocessor rules.")
+
+    if len(df) <= max(min(simObject.testStatsWindow,testSize)*2,minAcceptableTotalMonths):
+        raise Exception("Insufficient training or testing data following the application of preprocessor rules.")
 
     # Drop indepvars that do not have multiple values for single country fits
     if len(simObject.countries) == 1:
@@ -206,26 +214,28 @@ def prepCurves(simObject,
     curves = dict()
     dropped = []
     for country in simObject.countries:
-        #Load individual country
+        # Load individual country
         curve = preppedCountries['curves'][country].copy(deep=True)
         
-        #Get cutoff date
+        # Get cutoff date
         cutoff = getCutoffDate(country)
-        #if cutoff != cutoff:
-            #raise Exception("NaT Cutoff date indicates non-viable experiment.")
+
+        if cutoff != cutoff:
+            raise Exception("NaT Cutoff date indicates non-viable experiment.")
 
         try:
-            #Preps country curve
+            #P reps country curve
             prepped, log, testSize = prepCurve(simObject,
                                                curve,
                                                cutoff,
                                                simObject.testSize,
-                                               additionalPrep)
+                                               additionalPrep,
+                                               country)
     
-            #Tracks runnable variables for the country curve
+            # Tracks runnable variables for the country curve
             validVars = set(prepped.columns)
     
-            #Merge data structure
+            # Merge data structure
             curves[country] = {'curve':curve,
                                'cutoff':cutoff,
                                'prepped':prepped,
@@ -268,7 +278,6 @@ def pareIndepVars(simObject):
         simObject.indepVars = {var:delay for var,delay in simObject.indepVars.items() if var in keptKeys}
 
         # Update prepped curves and hashes
-        
         for country,data in simObject.curves.items():
             data['prepped'] = data['prepped'][list(keptKeys)].copy(deep=True)
             data['indepVars'] = deepcopy(simObject.indepVars)
@@ -292,11 +301,15 @@ def prepTTSSets(simObject):
         if simObject.monthsForward == 0:
             endTrim = max(countryData['testSize'] - simObject.testStatsWindow, 0)
             testSize = min(countryData['testSize'], simObject.testStatsWindow)
-            #print("DEBOOO",endTrim,testSize,len(countryData['prepped'][:-endTrim]))
-            
-            trainDf, testDf = train_test_split(countryData['prepped'][:-endTrim],
-                                               shuffle = False,
-                                               test_size = testSize)
+
+            if endTrim != 0:            
+                trainDf, testDf = train_test_split(countryData['prepped'][:-endTrim],
+                                                   shuffle = False,
+                                                   test_size = testSize)
+            else:
+                trainDf, testDf = train_test_split(countryData['prepped'],
+                                   shuffle = False,
+                                   test_size = testSize)
             
             yTrain = trainDf['y'].values
             yTest = testDf['y'].values
@@ -325,54 +338,60 @@ def prepTTSSets(simObject):
 
 
 def initModel(simObject,
-              indepVars,
+              selection,
               depVar,
-              countries,
-              prefix,
-              method,
+              indepVars,
+              projectionMethod,
+              testSize,
+              randomState,
               preprocessor,
+              additionalPrep,
+              modelArgs,
+              missingVarResponse,
+              prefix,
+              binaryLabelMetric,
               useCache,
               testStatsWindow,
               monthsForward,
-              metaRow,
               fuzzReplicates,
-              fuzzStd,
-              randomState = 1337):
+              fuzzStd):
     """Generalized model initiation across wrappers"""
+    
+    if monthsForward != 0:
+        testSize = 0
+        testStatsWindow = 0
 
     indepVars = sortDict(indepVars)
-    simObject.indepVars = indepVars
+    validCountries = [country for country in preppedCountries['filters'][selection] if country in preppedCountries['curves'].keys()]
+    simObject.initialCountryCount = len(validCountries)
+    
+    simObject.selection = selection
+    simObject.countries = validCountries
     simObject.depVar = depVar
-    simObject.countries = countries
-    simObject.prefix = prefix
-    simObject.method = method
-    simObject.preprocessor = preprocessor
+    simObject.indepVars = indepVars
+    simObject.testSize = testSize
+    simObject.missingVarResponse = missingVarResponse
+    simObject.projection = projectionMethod
+    simObject.preprocessor = ep.getGoogleSheetConfig(preprocessor)
+    simObject.dropLog = []
+    simObject.binaryLabeller = binaryLabelMetric
     simObject.useCache = useCache
     simObject.testStatsWindow = testStatsWindow
     simObject.monthsForward = monthsForward
-    simObject.metaRow = metaRow
     simObject.fuzzReplicates = fuzzReplicates
     simObject.fuzzStd = fuzzStd
-
-    # Initialize missing attributes that are needed by prepCurves and other functions
-    simObject.dropLog = []
-    simObject.testSize = 12  # default test size
-    simObject.missingVarResponse = 'drop var'  # default behavior
-    simObject.projection = 'AutoETS'  # default projection method
-    simObject.binaryLabeller = lambda x: 1 if x > 1 else 0  # default binary labeller
-    simObject.initialCountryCount = len(countries)
-    simObject.selection = '_'.join(countries) if len(countries) <= 3 else f"{len(countries)}_countries"
+    simObject.unshifted = dict()
 
     if prefix.endswith('/'):
         if not os.path.exists(f'output/tables/{prefix}'):
             os.makedirs(f'output/tables/{prefix}')
-    #elif prefix != '' and not prefix.endswith('_'):
-        #prefix += '_'
+    elif prefix != '' and not prefix.endswith('_'):
+        prefix += '_'
 
     simObject.prefix = prefix
 
     prepCurves(simObject,
-               dict())
+               additionalPrep)
 
     simObject.multipleCurves = len(simObject.curves) > 1
 
@@ -381,7 +400,7 @@ def initModel(simObject,
     if simObject.dropLog != []:
         print(f'Dropped {simObject.dropLog}')
     
-    simObject.modelArgs = dict()
+    simObject.modelArgs = modelArgs
     
     if randomState == "stochastic":
         randomState += ' ' + hashIt(os.urandom(32))[:10]
@@ -390,7 +409,6 @@ def initModel(simObject,
     prepTTSSets(simObject)
     getMergedFutures(simObject)
     
-    #curveHashes = [data['hash'] for country,data in simObject.curves.items()]
     simObject.hash = hashIt([simObject.randomState,
                              simObject.indepVars,
                              simObject.method,
@@ -404,9 +422,9 @@ def initModel(simObject,
 
     
     simObject.varKeys = sorted(list(simObject.indepVars.keys()))
-    mergedTrainDf = simObject.mergedFutures.dropna(subset=['y'])
-    simObject.xTrain = mergedTrainDf[simObject.varKeys].values
-    simObject.yTrain = mergedTrainDf['y'].values
+    simObject.mergedTrainDf = simObject.mergedFutures.dropna(subset=['y'])
+    simObject.xTrain = simObject.mergedTrainDf[simObject.varKeys].values
+    simObject.yTrain = simObject.mergedTrainDf['y'].values
     simObject.trained = None
 
 
@@ -416,95 +434,116 @@ def initModel(simObject,
 ############################################################
 
 
-def projectPredictor(country,
-                     var,
-                     periods,
-                     simObject):
-    """Projects a single predictor n periods into the future"""
 
-    if simObject.projection != 'NeuralProphet autoregression':
-        lag = simObject.indepVars[var]
+def projectPredictor(country, var, delay, simObject):
+    """
+    Projects a single predictor n periods into the future.
+
+    Assumptions:
+    - simObject.TTSData[country]['trainDf'] contains the training (historical) ds,var.
+    - simObject.unshifted[country][var] contains the regressor values *before* lag shift,
+      so the last `lag` entries there are used for the forward-aligned stub.
+    """
+
+    # Determine lag and horizons
+    lag = simObject.indepVars[var] if simObject.projection != 'NeuralProphet autoregression' else 0
+    testSize = simObject.curves[country]['testSize']
+    monthsForward = simObject.monthsForward
+    periods = int(testSize) + int(monthsForward)
+    if periods == 0:
+        return pd.DataFrame(columns=['ds', var])
+
+    # Training dataframe (historical only)
+    df_train = simObject.TTSData[country]['trainDf'][['ds', var]].copy()
+    df_train.columns = ['ds', 'y']
+    df_train['ds'] = pd.to_datetime(df_train['ds'])
+    last_train_date = df_train['ds'].max()
+
+    # How many stub rows go at the head of the projection window?
+    n_stub = min(int(lag), periods)
+    postLag = max(0, periods - n_stub)
+
+    # uild forward-aligned stub using UNshifted regressor
+    forwardAlignedStub = None
+    if n_stub > 0:
+        unshifted_series = simObject.unshifted[country][var].reset_index(drop=True)
+
+        # Take last n_stub values (pad with NaN if too short)
+        if len(unshifted_series) >= n_stub:
+            vals = unshifted_series.iloc[-n_stub:].reset_index(drop=True)
+        else:
+            pad = pd.Series([np.nan] * (n_stub - len(unshifted_series)))
+            vals = pd.concat([pad, unshifted_series], ignore_index=True)
+
+        stub_dates = [last_train_date + pd.DateOffset(months=i) for i in range(1, n_stub + 1)]
+        forwardAlignedStub = pd.DataFrame({'ds': stub_dates, var: vals.values})
+
+    # Forecast remaining months (postLag)
+    if postLag == 0:
+        forecast = pd.DataFrame(columns=['ds', var])
     else:
-        lag = 0
-        
-    postLag = periods - lag
+        if simObject.projection == 'AutoETS':
+            autoETSInstance = AutoETS(season_length=12)
+            df_sf = df_train.copy()
+            df_sf['unique_id'] = 'series'
+            sf = StatsForecast(df=df_sf,
+                               models=[autoETSInstance],
+                               freq='MS',
+                               n_jobs=-1)
+            sf.fit()
+            pred = sf.predict(h=postLag).reset_index()
+            pred = pred[['ds', 'AutoETS']].rename(columns={'AutoETS': var})
+            if n_stub > 0:
+                pred['ds'] = pred['ds'] + pd.DateOffset(months=n_stub)
+            forecast = pred
 
-    df = simObject.TTSData[country]['trainDf'][['ds',var]].copy(deep=True)
-    if lag != 0:
-        #dateSlice = simObject.curves[country]['curve'][['ds']].iloc[-periods:-postLag].copy(deep=True)
-        #varSlice = simObject.curves[country]['curve'][[var]].iloc[-periods-lag:-periods].copy(deep=True)
-        dateSlice = simObject.curves[country]['curve'][['ds']].iloc[-periods:-postLag].copy(deep=True)
-        varSlice = simObject.curves[country]['prepped'][[var]].iloc[-periods:-periods+lag].copy(deep=True)
-        varSlice.index = dateSlice.index
-        forwardAlignedStub = dateSlice.merge(varSlice,
-                                            left_index = True,
-                                            right_index = True)
-        df = pd.concat([df,forwardAlignedStub],ignore_index=True)
+        elif simObject.projection == 'NeuralProphet autoregression':
+            if not str(simObject.randomState).startswith('stochastic'):
+                set_random_seed(simObject.randomState)
+            model = NeuralProphet()
+            model.fit(df_train, freq='M')
+            future = model.make_future_dataframe(df_train, periods=postLag, n_historic_predictions=False)
+            fc = model.predict(future)
+            fc = fc[pd.to_datetime(fc['ds']) > last_train_date].copy().reset_index(drop=True)
+            if 'yhat1' in fc.columns:
+                pred = fc[['ds', 'yhat1']].rename(columns={'yhat1': var})
+            elif 'y' in fc.columns:
+                pred = fc[['ds', 'y']].rename(columns={'y': var})
+            else:
+                raise RuntimeError("NeuralProphet predict output lacks y/yhat1 column.")
+            if n_stub > 0:
+                pred['ds'] = pd.to_datetime(pred['ds']) + pd.DateOffset(months=n_stub)
+            forecast = pred
 
-    df.columns = ['ds','y']
+        else:
+            raise ValueError(f"Unknown projection method: {simObject.projection}")
 
-    if simObject.useCache:
-        hash = hashIt((df.to_csv(index=False),
-                       var,
-                       postLag,
-                       simObject.randomState,
-                       simObject.projection))
-        
-        cacheFile = f'store/{hash}Predictor.pkl'
-        
-        if os.path.exists(cacheFile):
-            with open(cacheFile, 'rb') as fileIn:
-                predictor = pickle.load(fileIn)
-            return predictor[-postLag:]
+    # Assemble final result
+    parts = []
+    if forwardAlignedStub is not None and not forwardAlignedStub.empty:
+        parts.append(forwardAlignedStub[['ds', var]])
+    if not forecast.empty:
+        forecast['ds'] = pd.to_datetime(forecast['ds'])
+        parts.append(forecast[['ds', var]])
 
+    if parts:
+        result = pd.concat(parts, ignore_index=True)
+    else:
+        result = pd.DataFrame(columns=['ds', var])
 
-    if df['y'].nunique() == 1:
-        lastDate = df['ds'].max()
-        yValue = df['y'].iloc[0]        
-        newDates = [lastDate + pd.DateOffset(months=i) for i in range(1, postLag + 1)]
-        newRows = pd.DataFrame({'ds': newDates, 'y': yValue})
-        result = pd.concat([df, newRows], ignore_index=True)
-        result.columns = ['ds',var]
+    # Ensure exactly `periods` rows (pad if needed)
+    result = result.sort_values('ds').reset_index(drop=True)
+    if len(result) < periods:
+        needed_dates = [last_train_date + pd.DateOffset(months=i) for i in range(1, periods + 1)]
+        existing = set(pd.to_datetime(result['ds']))
+        missing = [d for d in needed_dates if d not in existing]
+        pad_df = pd.DataFrame({'ds': missing, var: [np.nan] * len(missing)})
+        result = pd.concat([result, pad_df], ignore_index=True).sort_values('ds').reset_index(drop=True)
+    else:
+        result = result.iloc[:periods].reset_index(drop=True)
 
-    
-    elif simObject.projection == 'NeuralProphet autoregression':
-        if not str(simObject.randomState).startswith('stochastic'):
-            set_random_seed(simObject.randomState)
-        model = NeuralProphet()
-        metrics = model.fit(df,freq='M')
-        future = model.make_future_dataframe(df,
-                                             periods=postLag,
-                                             n_historic_predictions=True)
-        forecast = model.predict(future)
-        forecast['y'].fillna(forecast['yhat1'],inplace=True)
-    
-        result = forecast[['ds','y']]
-        result.columns = ['ds',var]
+    return result
 
-    
-    elif simObject.projection == 'AutoETS':
-        autoETSInstance = AutoETS(season_length=12)
-        df['unique_id'] = 'null'
-
-        statsforecast = StatsForecast(df = df,
-                                      models = [autoETSInstance],
-                                      freq = 'MS',
-                                      n_jobs=-1)
-        statsforecast.fit()
-        result = statsforecast.predict(postLag)
-        result = result.reset_index()[['ds','AutoETS']]
-        result.columns = ['ds',var]
-        
-    
-    if simObject.useCache:
-        with open(cacheFile, 'wb') as fileOut:
-            pickle.dump(result, fileOut, protocol=pickle.HIGHEST_PROTOCOL)
-
-
-    if lag != 0:
-        result = pd.concat([forwardAlignedStub,result],ignore_index=True)
-        
-    return result[-periods:]
     
 
 def getFutureDf(simObject,country):
@@ -516,7 +555,7 @@ def getFutureDf(simObject,country):
     
     if simObject.method.startswith('NeuralProphet') and simObject.indepVars == dict():
         future = model.make_future_dataframe(trainDf,
-                                             periods=testSize + simObject.monthsForward,
+                                             periods = testSize + simObject.monthsForward,
                                              n_historic_predictions=True)
     
     elif simObject.method.startswith('Scikit-learn') and simObject.indepVars == dict() and False:
@@ -527,10 +566,11 @@ def getFutureDf(simObject,country):
         for indepVar,delay in simObject.indepVars.items():
             predictor = projectPredictor(country,
                                          indepVar,
-                                         testSize + simObject.monthsForward,
+                                         delay,
                                          simObject)
             
             toMerge = toMerge.merge(predictor,how='outer')
+
 
     future = pd.concat([future,toMerge],
                        axis=0,
@@ -551,7 +591,6 @@ def mergeCurves(simObject):
 
     mergedFutures = pd.concat(toMerge,axis=0)
     if not simObject.multipleCurves or simObject.method == 'NeuralProphet lagged regressors': 
-        #mergedFutures = mergedFutures.drop(['ID'],axis=1)
         encodingMethod = 'pass_unchanged'
     else:
         # Encode country or other grouping variables to numeric types
@@ -618,7 +657,6 @@ def standardizeOutput(simObject,
     forecast = forecast.drop(['y'],axis=1)
     forecast = forecast.merge(simObject.curves[country]['prepped'][['ds','y']],
                              how = 'left')
-    #forecast = forecast.dropna()
         
     return forecast
 
@@ -671,10 +709,6 @@ def trainSKLearn(simObject, model):
 def alignEvalData(original,predicted):
     """Takes two iterables of the same length and drops rows where either is missing a value"""
 
-    #print(len(original))
-    #print(len(predicted))
-    #print(original)
-    #print(predicted)
     merged = pd.DataFrame({'original':original,
                            'predicted':predicted}).dropna()
     
@@ -690,10 +724,6 @@ def evaluateCountry(simObject,country):
         testSize = simObject.curves[country]['testSize']
         testWindow = min(testSize,simObject.testStatsWindow)
 
-        ## TODO: some issue is causing an off by one in the length of yTestPred, likely a dropna
-        ## suppressing with length matching for now
-        
-        #yTest,yTestPred = alignEvalData(countryTTS['yTest'],countryTTS['yTestPred'][:testWindow])
         yTest,yTestPred = alignEvalData(countryTTS['yTest'],countryTTS['yTestPred'][:len(countryTTS['yTest'])])
         yTrain,yTrainPred = alignEvalData(countryTTS['yTrain'],countryTTS['yTrainPred'])
     
@@ -722,6 +752,7 @@ def evaluateCountry(simObject,country):
     
         sensitivity = tp / (tp + fn) if (tp + fn) > 0 else np.nan
         f1 = f1_score(yTestBin, yTestPredBin) if (tp > 0) else np.nan
+        npv = tn / (tn + fn) if (tn + fn) > 0 else np.nan
         specificity = tn / (tn + fp) if (tn + fp) > 0 else np.nan
     
         result = {'Test MSE':mseTest,
@@ -733,13 +764,14 @@ def evaluateCountry(simObject,country):
                   'Sensitivity':sensitivity,
                   'Specificity':specificity,
                   'F1 Score':f1,
+                  'NPV':npv,
                   'True positives':tp,
                   'True negatives':tn,
                   'False positives':fp,
                   'False negatives':fn}
     else:
         result = dict()
-        testSize = 0
+        testWindow = 0
 
     modelParams = {'method':simObject.method,
                    'geography':simObject.selection,
@@ -761,9 +793,7 @@ def evaluateCountry(simObject,country):
 
 def evaluateModel(simObject):
     """Evaluates model performance for all countries within a given experiment"""
-    #if simObject.monthsForward != 0:
-    #    raise Exception("Model evaluation is currently incompatible with forward projection, please set 'monthsForward' to zero and try again.")
-    
+
     results = dict()
     for country in simObject.countries:
         result = evaluateCountry(simObject,country)
@@ -780,35 +810,20 @@ def evaluateModel(simObject):
 
 
 
-def exportTables(simObject, directory = 'output/'):
+def exportTables(simObject, directory = 'output/tables'):
     """Exports prepped data csvs from a trained run"""
 
-    if not os.path.exists(f'{directory}/{simObject.prefix}/'):
-        os.makedirs(f'{directory}/{simObject.prefix}/')
-    if not os.path.exists(f'{directory}/{simObject.prefix}/scores/'):
-        os.makedirs(f'{directory}/{simObject.prefix}/scores/')
-    if not os.path.exists(f'{directory}/{simObject.prefix}/tables/'):
-        os.makedirs(f'{directory}/{simObject.prefix}/tables/')
+    if not os.path.exists(directory):
+        os.makedirs(directory)
     
     hashStr = simObject.hash
     for country, table in simObject.trained['plotDfs'].items():
-        table = table[['ID', 'ds', 'y', 'yhat1']]
-        table2 = deepcopy(table)
-        table2[['ROW_ID']] = simObject.metaRow
-        fileOut = f'{directory}{simObject.prefix}/tables/{simObject.metaRow}_{country}_Projection.csv'
-        table2.to_csv(fileOut,index=False)
+        fileOut = f'{directory}/{simObject.prefix}{hashStr}_{country}_Projection.csv'
+        table.to_csv(fileOut,index=False)
         
-    summaryRef = f'{directory}{simObject.prefix}/scores/{simObject.metaRow}_Summary.csv'
-    metricSummary = evaluateModel(simObject)
-    metricSummary.index.name = 'ID'
-    metricSummary.reset_index(inplace=True)
-    metricSummary = metricSummary[['ID', 'Test MSE', 'Test MAE', 'Test R2', 
-                                   'Train MSE', 'Train MAE', 'Train R2', 
-                                   'Sensitivity', 'Specificity', 'F1 Score', 
-                                   'method']]
-    metricSummary2 = deepcopy(metricSummary)
-    metricSummary2['ROW_ID'] = simObject.metaRow
-    metricSummary2.to_csv(summaryRef, index=False)    
+    summaryRef = f'{directory}/{simObject.prefix}{hashStr}_Summary.csv'
+    evaluateModel(simObject).to_csv(summaryRef)
+    
 
 def plotTTS(simObject):
     """Quick plotting function for TTS objects"""
@@ -836,44 +851,56 @@ def plotTTS(simObject):
     plt.title(f"{simObject.country} {simObject.depVar} vs predictors {simObject.indepVars}\nMethod: {simObject.method}")
     plt.savefig(f'output/figures/{simObject.hash}.png')
 
+
     
 ############################################################
 ###  NEURAL PROPHET LAGGED REGRESSOR TTS CLASS           ###
 ############################################################
 
 
+
 class npLaggedTTS:
     def __init__(self,
-                 indepVars,
+                 country,
                  depVar,
-                 countries,
-                 prefix,
-                 method,
-                 preprocessor,
+                 indepVars,
+                 prefix = '',
+                 projectionMethod = defaultProjectionMethod,
+                 missingVarResponse = defaultMissingVarResponse,
+                 testSize = 12,
+                 randomState = 1337,
+                 preprocessor = ep.tempConfigURL,
+                 additionalPrep = dict(),
+                 binaryLabelMetric = defaultBinaryMetric,
                  useCache = False,
                  testStatsWindow = 9,
                  monthsForward = 0,
-                 metaRow = 1,
                  fuzzReplicates = 0,
-                 fuzzStd = 0.01,
-                 randomState = 1337):
+                 fuzzStd = 0.01):
         """
         Initialize the model parameters
         """
+
+        self.method = 'NeuralProphet lagged regressors'
+
         initModel(self,
-                 indepVars,
-                 depVar,
-                 countries,
-                 prefix,
-                 method,
-                 preprocessor,
-                 useCache,
-                 testStatsWindow,
-                 monthsForward,
-                 metaRow,
-                 fuzzReplicates,
-                 fuzzStd,
-                 randomState)
+                  country,
+                  depVar,
+                  indepVars,
+                  projectionMethod,
+                  testSize,
+                  randomState,
+                  preprocessor,
+                  additionalPrep,
+                  dict(),
+                  missingVarResponse,
+                  prefix,
+                  binaryLabelMetric,
+                  useCache,
+                  testStatsWindow,
+                  monthsForward,
+                  0,
+                  0)
 
 
     def train(self):
@@ -897,7 +924,6 @@ class npLaggedTTS:
                 model = NeuralProphet()
             
             for indepVar,delay in self.indepVars.items():
-                print(indepVar,delay)
                 if delay != 0:
                     model.add_lagged_regressor(indepVar, n_lags=delay)
                 else:
@@ -948,36 +974,46 @@ class npLaggedTTS:
 
 class sklGradientBoostingRegression:
     def __init__(self,
-                 indepVars,
+                 country,
                  depVar,
-                 countries,
-                 prefix,
-                 method,
-                 preprocessor,
+                 indepVars,
+                 prefix = '',
+                 projectionMethod = defaultProjectionMethod,
+                 missingVarResponse = defaultMissingVarResponse,
+                 testSize = 12,
+                 randomState = 1337,
+                 preprocessor = ep.tempConfigURL,
+                 additionalPrep = dict(),
+                 binaryLabelMetric = defaultBinaryMetric,
                  useCache = False,
                  testStatsWindow = 9,
                  monthsForward = 0,
-                 metaRow = 1,
                  fuzzReplicates = 0,
-                 fuzzStd = 0.01,
-                 randomState = 1337):
+                 fuzzStd = 0.01):
         """
         Initialize the model parameters
         """
+        
+        self.method = 'Scikit-learn gradient boosted regression'
+
         initModel(self,
-                 indepVars,
-                 depVar,
-                 countries,
-                 prefix,
-                 method,
-                 preprocessor,
-                 useCache,
-                 testStatsWindow,
-                 monthsForward,
-                 metaRow,
-                 fuzzReplicates,
-                 fuzzStd,
-                 randomState)
+                  country,
+                  depVar,
+                  indepVars,
+                  projectionMethod,
+                  testSize,
+                  randomState,
+                  preprocessor,
+                  additionalPrep,
+                  dict(),
+                  missingVarResponse,
+                  prefix,
+                  binaryLabelMetric,
+                  useCache,
+                  testStatsWindow,
+                  monthsForward,
+                  fuzzReplicates,
+                  fuzzStd)
     
     
     def train(self):
@@ -999,7 +1035,6 @@ class sklGradientBoostingRegression:
             else:
                 model = ensemble.GradientBoostingRegressor()
 
-            #model.fit(self.xTrain, self.yTrain)
             trainSKLearn(self,model)
                          
             forecast = self.mergedFutures.copy(deep=True)
@@ -1144,14 +1179,19 @@ def prepEnsemble(models = 'diverse',
 
 class sklGeneric:
     def __init__(self,
-                 countries,              # Can be single string or list
+                 country,
                  depVar,
                  indepVars,
-                 modelArgs = None,       # For cluster_dev_2 compatibility
-                 randomState = 1337,     # For cluster_dev_2 compatibility  
-                 preprocessor = None,
-                 prefix = 'run',
-                 metaRow = 1,
+                 prefix = '',
+                 projectionMethod = defaultProjectionMethod,
+                 missingVarResponse = defaultMissingVarResponse,
+                 testSize = 12,
+                 randomState = 1337,
+                 modelArgs = dict(),
+                 preprocessor = ep.tempConfigURL,
+                 additionalPrep = dict(),
+                 initialized = False,
+                 binaryLabelMetric = defaultBinaryMetric,
                  useCache = False,
                  testStatsWindow = 9,
                  monthsForward = 0,
@@ -1164,53 +1204,46 @@ class sklGeneric:
         """
         Initialize the model parameters
         """
-        
-        # Handle single country string (cluster_dev_2 style) vs country list (main style)
-        if isinstance(countries, str):
-            countries = [countries]
-            
-        # Set default preprocessor if none provided
-        if preprocessor is None:
-            import EpiPreprocessor as ep
-            preprocessor = ep.getGoogleSheetConfig(ep.tempConfigURL)
-            
-        # Initialize the model first
-        initModel(self,
-                 indepVars,
-                 depVar,
-                 countries,
-                 prefix,
-                 'sklGeneric',  # method name
-                 preprocessor,
-                 useCache,
-                 testStatsWindow,
-                 monthsForward,
-                 metaRow,
-                 fuzzReplicates,
-                 fuzzStd,
-                 randomState)
 
-        # Handle ensemble models (from main branch)
+
         if ensembleModels != []:
             preppedModel, modelName, modelState = prepEnsemble(models = ensembleModels,
                                                                randomState = randomState,
                                                                stackingModelName = ensembleStacker,
                                                                finalEstimatorName = ensembleEstimator,
                                                                passThrough = ensemblePassthrough)
-            self.modelArgs = {'model':preppedModel,
-                             'modelName':modelName}
-            self.randomState = hash(modelState)
+            modelArgs = {'model':preppedModel,
+                         'modelName':modelName}
+            randomState = hash(modelState)
             self.method = f'Scikit-learn generic: {modelName}'
             self.initialized = True
+
         else:
-            # Handle direct model specification (cluster_dev_2 style)
-            if modelArgs is not None:
-                self.modelArgs = modelArgs
-                self.method = f'Scikit-learn generic: {modelArgs["modelName"]}'
-                self.initialized = False
-            else:
-                raise ValueError("Must provide either modelArgs or ensembleModels")
-            self.randomState = randomState
+            self.method = f'Scikit-learn generic: {modelArgs["modelName"]}'
+            self.initialized = initialized
+
+        
+        
+        initModel(self,
+                  country,
+                  depVar,
+                  indepVars,
+                  projectionMethod,
+                  testSize,
+                  randomState,
+                  preprocessor,
+                  additionalPrep,
+                  modelArgs,
+                  missingVarResponse,
+                  prefix,
+                  binaryLabelMetric,
+                  useCache,
+                  testStatsWindow,
+                  monthsForward,
+                  fuzzReplicates,
+                  fuzzStd)
+
+        
 
     
     def train(self):
@@ -1236,7 +1269,6 @@ class sklGeneric:
                 self.trained = pickle.load(fileIn)
         
         else:
-            #model.fit(self.xTrain, self.yTrain)
             trainSKLearn(self,model)
             
             forecast = self.mergedFutures.copy(deep=True)
