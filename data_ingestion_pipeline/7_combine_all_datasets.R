@@ -35,12 +35,12 @@ MeaslesDat <- MeaslesDat[date < as.Date("2024-04-01")] # Data are mostly NAs bey
 
 # Load and merge temperature data
 # Temperature data is matched by date and country (ISO3 code)
-TmaxDat <- fread(paste0(processed_dat_drive, "processed_tmax_data.csv"), na.strings = "")
+TmaxDat <- fread(paste0(processed_dat_drive, "processed_temp_data.csv"), na.strings = "")
 TmaxDat[, date := as.Date(date)]
 # Left join: add temperature data to measles dataset where dates/countries match
-MeaslesDat[TmaxDat, mean_max_temp := i.mean_max_temp, on = .(date, ISO3)]
+MeaslesDat[TmaxDat, mean_temp := i.mean_temp, on = .(date, ISO3)]
 # Check how many countries have missing temperature data (for quality assessment)
-MeaslesDat[is.na(mean_max_temp), .N, by = .(Country)]
+MeaslesDat[is.na(mean_temp), .N, by = .(Country)]
 
 # Load and merge precipitation data  
 # Similar approach: match by date and country

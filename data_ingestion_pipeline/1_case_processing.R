@@ -31,12 +31,14 @@ PopDat <- fread("data_ingestion_pipeline/local_data/WPP2022_Demographic_Indicato
 PopDat <- PopDat[!is.na(ISO2_code), ]
 
 # 3) Subset data & format dates
-measlesDatLong <- measlesDat[, .(ISO3, Country, Region, Year, Month, cases = `Measles \r\ntotal`)]
-measlesDatLong[, mnth := as.numeric(Month)]
-measlesDatLong[, Year := as.numeric(Year)]
-measlesDatLong[, Month := lubridate::month(mnth, label = T, abbr = F)]
-measlesDatLong[, date := lubridate::mdy(char_date)]
-measlesDatLong[, cases := as.numeric(cases)]
+measlesDat<- measlesDat[, .(ISO3, Country, Region, Year, Month, cases = `Measles \r\ntotal`)]
+measlesDat[, mnth := as.numeric(Month)]
+measlesDat[, Year := as.numeric(Year)]
+measlesDat[, Month := lubridate::month(mnth, label = T, abbr = F)]
+measlesDat[, date := lubridate::mdy(char_date)]
+measlesDat[, cases := as.numeric(cases)]
+measlesDatLong <- measlesDat[,.SD[CJ(date = seq(min(date), max(date), by = "month"), 
+                                     unique = T),  on = .(date)], by = .(ISO3, Country, Region)]
 setorder(measlesDatLong, "ISO3", "date")
 
 # 4) Calculate cumulative cases and infer outbreak status
