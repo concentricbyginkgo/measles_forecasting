@@ -1,0 +1,208 @@
+@font-face {
+  font-family: 'sofia';
+  src: url('fonts/sofia_regular.font.woff');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'sofia';
+  src: url('fonts/sofia_bold.font.woff');
+  font-weight: bold;
+  font-style: normal;
+}
+
+input[type="number"] {
+  max-width: 80%;
+}
+
+#nav {
+  font: 'sofia';
+  font-weight: 400;
+}
+
+/*.navbar-brand img {
+   -webkit-filter: grayscale(1) invert(1);
+    filter: grayscale(1) invert(1);
+}*/
+
+div.outer {
+  position: fixed;
+  top: 56px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+/* Customize fonts */
+body, label, input, button, select { 
+  font-family: 'sofia';
+  font-weight: 200;
+}
+h1, h2, h3, h4 { font: 'sofia'; font-weight: 400; }
+
+/*h5, h6 { color: #045A8D; font: 'sofia'; font-size: 12px; font-weight: 300; display: inline !important;}*/
+
+#controls {
+  /* Appearance */
+  background-color: white;
+  padding: 0 10px 10px 10px;
+  cursor: move;
+  /* Fade out while not hovering */
+  opacity: 0.70;
+  zoom: 0.9;
+  transition: opacity 500ms 1s;
+}
+
+#controls:hover {
+  /* Fade in while hovering */
+  opacity: 0.75;
+  transition-delay: 0;
+}
+
+#helptext {
+  color: #045a8d;
+  font: 'sofia';
+  font-weight: 400;
+}
+
+helptext_1 {
+  color: #1a9641;
+  font: 'sofia';
+  font-weight: 400;
+}
+
+helptext_2 {
+  color: #a6d96a;
+  font: 'sofia';
+  font-weight: 400;
+}
+
+helptext_3 {
+  color: #ffffbf;
+  font: 'sofia';
+  font-weight: 400;
+}
+
+helptext_4 {
+  color: #fdae61;
+  font: 'sofia';
+  font-weight: 400;
+}
+
+helptext_5 {
+  color: #d7191c;
+  font: 'sofia';
+  font-weight: 400;
+}
+
+.metabiota-logo-image {
+  position:absolute; top:10px; right:10px;/*left:10px; top:10px;*/
+  /*object-position: center;*/
+  width:200px; /* you can use % */
+  height: 5;
+  /*height: auto;*/
+}
+
+
+#logo {
+  /* Appearance */
+  background-color: transparent;
+  cursor: move;
+  /* Fade out while not hovering */
+  opacity: 0.25;
+  zoom: 0.9;
+  transition: opacity 500ms 1s;
+}
+
+#logo:hover {
+  /* Fade in while hovering */
+  opacity: 0.95;
+  transition-delay: 0;
+}
+
+/*a {color: #ef6c00;}
+a:hover {color: #ef6c00;}*/
+
+.navbar-nav > li{
+  padding-left:10px;
+  padding-right:10px;
+}
+
+a:hover { text-decoration: none; }
+
+
+a:active { text-decoration: none; }
+
+.navbar-collapse .navbar-nav .active {
+  border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: #ef6c00;
+}
+
+/*
+body > nav > div > ul:nth-child(1) > li.nav-item.active {border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: #ef6c00;} 
+body > nav > div > ul:nth-child(1) > li.nav-item.active:focus {border-bottom-width: 2px; border-bottom-style: solid; border-bottom-color: #ef6c00;} 
+*/
+
+.fa {
+    /*display: inline !important;*/
+    position: static;
+    padding-right: 5px;
+    padding-left: 5px;
+    color: #045A8D;
+}
+
+.glyphicon {
+    position: static;
+    padding-right: 5px;
+    padding-left: 5px;
+    color: #045A8D;
+}
+.tblcell {
+    display: table-cell;
+    display: inline !important;
+    vertical-align: middle;
+    color: #045A8D;
+}
+
+.modal-dialog {
+  position: absolute;
+  top: 50px;
+  right: 100px;
+  bottom: 0;
+  left: 0;
+  z-index: 10040;
+  overflow: auto;
+  overflow-y: auto;
+}
+
+#modal_label{
+  display:inline;
+  padding-top: 10px;
+  float:left;
+}
+
+.form-gap {
+    padding-top: 70px;
+}
+
+.fa-info-circle {
+  color:#FFFFFF;
+}
+
+.bg-dark {
+    background-color: #323251!important;
+}
+
+/*.close { 
+  padding-bottom: 15px;
+}*/
+
+/*.modal.fade .modal-dialog {
+  transform: translate3d(0, 100vh, 0);
+}
+
+.modal.in .modal-dialog {
+  transform: translate3d(0, 0, 0);
+}*/
