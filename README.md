@@ -86,7 +86,7 @@ The repository includes several Python modules and Jupyter notebooks:
 #### Jupyter Notebooks
 - **`FinalModelStage1Runs.ipynb`** - Primary notebook for model training and forecasting
 - **`RunFromFunction.ipynb`** - Alternative model training workflow using metadata-driven approach
-- **`TTSEval.ipynb`** - Time series evaluation and testing
+- **`TTSEval.ipynb`** - Interactive time series evaluation and testing with model function documentation
 
 ### Model Training and Forecasting
 
