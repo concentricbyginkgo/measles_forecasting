@@ -10,6 +10,7 @@ This repository provides a complete pipeline for measles outbreak forecasting us
 2. **Grid Search**: Use R scripts in `grid_search/` to identify optimal predictors
 3. **Environment Setup**: Create Python environment with required packages (see Environment Setup section)
 4. **Model Training**: Use `model/FinalModelStage1Runs.ipynb` or `model/RunFromFunction.ipynb` for model training and forecasting
+5. **Model Validation** (Optional): Launch the Shiny app in `shiny_standalone/` for interactive model validation and visualization
 
 ## Repository Structure
 
@@ -18,7 +19,8 @@ measles_forecasting/
 ├── data_ingestion_pipeline/   # R scripts for data processing (1-7)
 ├── grid_search/               # R scripts for predictor selection and metadata generation
 ├── model/                     # Core Python modules and Jupyter notebooks
-└── model_comparison_pipeline/ # Model evaluation and visualization tools
+├── model_comparison_pipeline/ # Model evaluation and visualization tools
+└── shiny_standalone/          # Interactive Shiny web application for model validation
 ```
 
 ## Data Ingestion Pipeline
@@ -170,10 +172,41 @@ The `model_comparison_pipeline/` directory contains tools for evaluating and com
 - **`summary_output/`** - Aggregated summary tables (summaryTable.csv)
 - **Documentation** - Detailed pipeline documentation (PDF)
 
+## Interactive Model Validation (`shiny_standalone/`)
+
+The `shiny_standalone/` directory contains a comprehensive Shiny web application for interactive model validation and visualization:
+
+### Key Features
+- **Interactive Country Selection** - Choose from countries with ISO3 codes for detailed analysis
+- **Model Performance Metrics** - View detailed performance statistics in interactive data tables
+- **Epidemiological Curve Visualization** - Compare observed vs predicted case counts over time
+- **Binary Outcome Analysis** - Visualize outbreak prediction accuracy using heatmaps
+- **Model Selection & Validation** - Separate analysis for training and validation periods
+
+### Application Structure
+- **`ui.R`** - User interface definition with responsive Bootstrap layout
+- **`server.R`** - Server logic for data processing and visualization
+- **`global.R`** - Global variables, functions, and data loading
+- **`data/`** - Sample datasets including cutoff dates and summary tables
+- **`www/`** - Static web assets (CSS, images, favicon)
+- **Documentation** - Complete user guide (`Measles_Model_Validation_App_Documentation.html`)
+
+### Running the Application
+```r
+# Install required packages
+install.packages(c("shiny", "data.table", "plotly", "ggplot2", "DT", "viridis"))
+
+# Run the application
+shiny::runApp("shiny_standalone/")
+```
+
+The application provides an intuitive interface for exploring model performance across different countries and time periods, making it easy to validate model predictions and compare performance metrics.
+
 ## Documentation
 
 - **Social data README**: `data_ingestion_pipeline/README_Social_Series.txt`
 - **Model comparison documentation**: `model_comparison_pipeline/INV-059412_GinkgoBiosecurity_Output 7_Model Comparison Pipeline Documentation_12092024.pdf`
+- **Shiny app user guide**: `shiny_standalone/Measles_Model_Validation_App_Documentation.html`
 
 ## Notes for Public Use
 
