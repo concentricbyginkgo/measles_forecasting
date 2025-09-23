@@ -1,0 +1,11 @@
+MODEL_ID,country,predictor,num_predictors,environmentalArg,model,Rep,ROW_ID,Seed
+e141b99779cb,ARE,"{'migrations_per_1k': 0, 'incoming_air_passengers': 0, 'prop_prev_rolling_12_mnths_outbreak_5M': 0}",3,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",diverse,8,210293,486079
+36cc4c4ebadd,TUR,"{'migrations_per_1k': 0, 'MCV1': 0}",2,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",diverse,11,200516,889036
+881a1ac2a5ae,ETH,"{'MCV1': 0, 'outgoing_air_passengers': 0}",2,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",boosted heavy,9,98169,1201010
+6da6bc5eb489,AFG,"{'MCV2': 0, 'mnths_since_SIA': 0, 'prop_prev_rolling_24_mnths_outbreak_5M': 0}",3,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",boosted heavy,4,42484,620279
+8025c90f80d8,SSD,"{'MCV1': 0, 'mnths_since_outbreak_20_per_M': 0, 'mnths_since_SIA': 0}",3,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",diverse,2,186917,1153872
+484741d2dae6,GHA,"{'migrations_per_1k': 0, 'mnths_since_SIA': 0, 'prop_prev_rolling_24_mnths_outbreak_5M': 0}",3,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",diverse,3,114948,1350944
+b2775a482717,PHL,"{'mnths_since_outbreak_20_per_M': 0, 'mnths_since_SIA': 0, 'cases_1M_36z': 0}",3,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",diverse,13,167668,1546113
+95d1da9cd390,GHA,"{'MCV2': 0, 'mnths_since_outbreak_20_cuml_per_M': 0}",2,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",diverse,3,110268,1040962
+6baa55e4044f,SMR,{'prop_prev_rolling_60_mnths_outbreak_5M': 0},1,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",diverse,14,230279,58772
+03b69153ae53,cluster:9,"{'MCV2': 0, 'prop_prev_rolling_12_mnths_outbreak_5M': 0}",2,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",diverse,6,31191,1361530
