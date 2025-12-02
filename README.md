@@ -1,5 +1,6 @@
 # Measles Forecasting
-AI-enabled measles forecasting using machine learning models
+AI-enabled measles forecasting using machine learning models.
+Contact: ameadows@ginkgobioworks.com
 
 ## Overview
 
