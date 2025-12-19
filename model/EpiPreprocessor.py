@@ -24,7 +24,7 @@ import ast
 warnings.simplefilter(action='ignore', category=FutureWarning)
 set_log_level("ERROR")
 
-tempConfigURL = 'input/tempConfig.csv'
+tempConfigURL = 'input/PreprocessorConfig.csv'
 
 ##########################################
 ###   CONFIG LOADER AND HASHING METHOD ###
