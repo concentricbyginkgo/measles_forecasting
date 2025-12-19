@@ -1,5 +1,6 @@
 # Measles Forecasting
-AI-enabled measles forecasting using machine learning models
+AI-enabled measles forecasting using machine learning models.
+Contact: ameadows@ginkgobioworks.com
 
 ## Overview
 
@@ -220,4 +221,10 @@ Users must run the data ingestion pipeline to generate required input files, as 
 ## Citation
 
 When using this code, please cite the associated research and acknowledge the data sources as detailed in the data inventory.
+
+## Terms of Use
+
+Creative Commons Attribution 4.0 (CC BY 4.0)
+
+This work is based on research funded by the Gates Foundation. The findings and conclusions contained within are those of the authors and do not necessarily reflect positions or policies of the Gates Foundation.
 

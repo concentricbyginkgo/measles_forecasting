@@ -1,0 +1,35 @@
+Variable,Parent dataset,Description,Preprocessor methods
+cluster,Derived,Country cluster assigned via hierarchical clustering algorithm and dynamic time warping to calculate the distance matrices between the time series case and predictor data,pass_unchanged
+cluster_region,Derived,"A reconfiguration of the 'cluster' variable, breaking up large clusters based on geographic regions",pass_unchanged
+cluster_redraw,Derived,"A reconfiguration of the 'cluster' variable, breaking up large clusters based on dendrogram height",pass_unchanged
+incoming_air_passengers,Derived from OAG,Mean monthly number of passengers arriving from countries with at least 8 years of outbreaks (defined as an annual 20 cumulative cases per million population) in the WHO measles dataset (international flights only),back_truncate
+outgoing_air_passengers,Derived from OAG,Mean monthly number of passengers departing to countries with at least 8 years of outbreaks (defined as an annual 20 cumulative cases per million population) in the WHO measles dataset (international flights only),back_truncate
+passengers_from_iso3_reporting_cases,Derived from OAG,Mean monthly number of passengers arriving from countries with at least 1 reported measles case in the WHO dataset (international flights only),zero_fill
+passengers_to_iso3_reporting_cases,Derived from OAG,Mean monthly number of passengers departing to countries with at least 1 reported measles case in the WHO dataset (international flights only),zero_fill
+cuml_cases,Derived from WHO case data,Derived annual cumulative cases,back_truncate interpolate_via_cubic zero_min
+outbreak_20_per_M,Derived from WHO case data,Indicates if cases were greater than or equal to 20 per million population (yes/no),back_truncate yn_to_int
+outbreak_2_per_M,Derived from WHO case data,Indicates if cases were greater than or equal to 2 per million population (yes/no),back_truncate yn_to_int
+outbreak_20_cuml_per_M,Derived from WHO case data,Indicates if annual cumulative cases were greater than or equal to 20 per million population (yes/no),back_truncate yn_to_int
+prop_prev_rolling_12_mnths_outbreak_5M,Derived from WHO case data,The proportion of months in a previous 12 month rolling window in outbreak status,back_truncate
+prop_prev_rolling_24_mnths_outbreak_5M,Derived from WHO case data,The proportion of months in a previous 24 month rolling window in outbreak status,back_truncate
+prop_prev_rolling_60_mnths_outbreak_5M,Derived from WHO case data,The proportion of months in a previous 60 month rolling window in outbreak status,back_truncate
+cases_1M_12z,Derived from WHO case data,The case z-score calculated over the previous rolling 12 months,
+cases_1M_36z,Derived from WHO case data,The case z-score calculated over the previous rolling 36 months,
+cases_1M_60z,Derived from WHO case data,The case z-score calculated over the previous rolling 60 months,
+mnths_since_outbreak_20_per_M,Derived from WHO case data,The number of months since the last outbreak of the indicated threshold was met,back_truncate
+mnths_since_outbreak_2_per_M,Derived from WHO case data,The number of months since the last outbreak of the indicated threshold was met,back_truncate
+mnths_since_outbreak_20_cuml_per_M,Derived from WHO case data,The number of months since the last outbreak of the indicated threshold was met,back_truncate
+mnths_since_SIA,Derived from WHO SIA data,The number of months since the last SIA occurred,back_truncate
+num_outbreak_20_cuml_per_M,Derived from WHO case data,The number of months the outbreak threshold was met,back_truncate
+years_with_outbreak,Derived from WHO case data,The number of years the outbreak threshold of 20 cumulative cases per million population was met,average_valid_overwrite
+cases_1M,Derived from WHO case data and UN World Population Prospects 2022,Reported measles cases per million population,back_truncate forward_truncate interpolate_via_cubic zero_min
+mean_precip_mm_per_day,NOAA CMAP Precipitation,Mean precipitation (mm) over the month for all grids geocoding to country,back_truncate interpolate_via_cubic zero_min
+mean_max_temp,NOAA CPC Global Unified Temperature,Mean maximum surface temperature over the month for all grids geocoding to country,back_truncate interpolate_via_cubic
+population_jan,UN World Population Prospects 2022,"Total Population, as of 1 January (thousands)",january_only interpolate_via_linear
+birth_per_1k,UN World Population Prospects 2022,"Crude Birth Rate (births per 1,000 population)",january_only divide_by_12 interpolate_via_linear
+migrations_per_1k,UN World Population Prospects 2022,"Net Migration Rate (per 1,000 population)",january_only divide_by_12 interpolate_via_linear
+unicef_region,UNICEF Immunization coverage data,,pass_unchanged
+MCV1,UNICEF Immunization coverage data,MCV1 Vaccination Coverage,january_only interpolate_via_linear forward_fill back_fill 
+MCV2,UNICEF Immunization coverage data,MCV2 Vaccination Coverage,january_only interpolate_via_linear forward_fill back_fill 
+date,WHO Provisional monthly measles and rubella data,,pass_unchanged
+cases,WHO Provisional monthly measles and rubella data,Reported measles cases,back_truncate forward_truncate interpolate_via_cubic zero_min
