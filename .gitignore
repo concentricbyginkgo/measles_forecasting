@@ -8,3 +8,21 @@ data_ingestion_pipeline/local_data/
 forecast_model/lightning_logs
 forecast_model/store
 forecast_model/__pycache__
+
+# test output directories
+test/output/
+test/data/*.csv
+!test/data/.gitkeep
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# OS files
+.DS_Store
+*.swp
+*.swo
+*~
