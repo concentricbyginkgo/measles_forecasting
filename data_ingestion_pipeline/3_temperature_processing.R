@@ -5,6 +5,7 @@
 # Contains modified Copernicus Climate Change Service information (2025) – with major processing by Our World in Data
 
 library(data.table)
+library(lubridate)
 ## Fetch the metadata
 #metadata <- fromJSON("https://ourworldindata.org/grapher/monthly-average-surface-temperatures-by-year.metadata.json?v=1&csvType=full&useColumnShortNames=false")
 #metadata$columns
@@ -15,6 +16,6 @@ names(tempDatLong) <- c("Country", "ISO3", "Month", "Year", "mean_temp")
 tempDatLong[, `:=`(Month = as.numeric(Month),
                    Year = as.numeric(as.character(Year)))]
 tempDatLong <- tempDatLong[Year >= 2011, ]
-tempDatLong[, date := lubridate::mdy(paste0(Month, "/1/", Year))]
+tempDatLong[, date := lubridate::ymd(paste(Year, Month, "01", sep = "-"))]
 tempDatLong <- tempDatLong[!is.na(mean_temp)]
-fwrite(mean_tmax, "data_ingestion_pipeline/processed_data/processed_temp_data.csv")
+fwrite(tempDatLong, "data_ingestion_pipeline/processed_data/processed_temp_data.csv")

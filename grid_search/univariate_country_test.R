@@ -6,9 +6,9 @@ library(lmerTest)
 # note this script was run using measles case data obtained April 4, 2025
 # running it with refreshed data will likely yield different results.
 
-working_dir <- "measles_forecasting/" # updated if needed!
-set_wd(working_dir)
-inputDat <- fread("./input/processed_measles_model_data.csv", na.strings = "")
+working_dir <- "~/python_projects/measles_forecasting/" # updated if needed!
+setwd(working_dir)
+inputDat <- fread("./model/input/processed_measles_model_data.csv", na.strings = "")
 setnames(inputDat, "outbreak_20_cuml_per_M", "outbreak")
 inputDat[, date := as.Date(date)]
 inputDat[inputDat[outbreak == "yes", .N, by = .(ISO3)], months_with_outbreak := i.N, on = .(ISO3)]
@@ -19,6 +19,7 @@ outbreakDat <- unique(inputDat[, .(ISO3, months_with_outbreak, years_with_outbre
 inputDat[, outbreak := NULL]
 
 reportDat <- inputDat[years_with_outbreak > 0, ]
+
 # Prepare data for analysis
 reportDat[, ISO3 := as.factor(ISO3)]
 reportDat[outbreak_5_per_M == 1, outbreak := "yes"] 

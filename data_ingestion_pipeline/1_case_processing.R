@@ -9,7 +9,7 @@ library(tidyr)
 library(lubridate)
 
 # 1) Update your local drive!
-working_drive <- "~/measles_forecasting"
+working_drive <- "~/measles_forecasting/"
 setwd(working_drive)
 
 # Create directory to write processed data
@@ -35,7 +35,8 @@ measlesDat<- measlesDat[, .(ISO3, Country, Region, Year, Month, cases = `Measles
 measlesDat[, mnth := as.numeric(Month)]
 measlesDat[, Year := as.numeric(Year)]
 measlesDat[, Month := lubridate::month(mnth, label = T, abbr = F)]
-measlesDat[, date := lubridate::mdy(char_date)]
+# Create date from Year and Month (assuming first day of month)
+measlesDat[, date := lubridate::ymd(paste(Year, mnth, "01", sep = "-"))]
 measlesDat[, cases := as.numeric(cases)]
 measlesDatLong <- measlesDat[,.SD[CJ(date = seq(min(date), max(date), by = "month"), 
                                      unique = T),  on = .(date)], by = .(ISO3, Country, Region)]
@@ -148,7 +149,6 @@ measlesDatLong[, cases_1M_36z := (cases_1M-shift(rolling_36_mnths_mean_cases_1M,
 measlesDatLong[, cases_1M_60z := (cases_1M-shift(rolling_60_mnths_mean_cases_1M, n = 12, type = "lag"))/shift(rolling_60_mnths_sd_cases_1M, n = 12, type = "lag"), by = .(ISO3)]
 
 # 7) write data 
-measlesDatLong[, char_date := NULL]
 fwrite(measlesDatLong, "data_ingestion_pipeline/processed_data/processed_measles_case_data.csv")
 
 

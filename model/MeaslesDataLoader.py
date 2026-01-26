@@ -4,7 +4,7 @@
 ###      * RANKS COUNTRIES BY NUMBER OF LABELLED OUTBREAKS              ###
 ###      * HARDCODED TO EXPECTED DATA AND FILE LOCATIONS                ###
 ###                                                                     ###
-###             Contact: James Schlitt ~ jschlitt@ginkgobioworks.com    ###
+###             Contact: James Schlitt ~ schlittdatasci@gmail.com       ###
 ###########################################################################
 
 

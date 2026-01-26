@@ -148,10 +148,11 @@ def fitOne(metadata, ROW, run_name):
                 return
         else:
             #raise e
-            if not os.path.exists(f'output/{run_name}/scores/'):
-                os.makedirs(f'output/{run_name}/scores/')           
+            scores_dir = f'output/{run_name}/scores'
+            if not os.path.exists(scores_dir):
+                os.makedirs(scores_dir, exist_ok=True)           
             result = nullResult
             result = pd.DataFrame(data=result, index=[0])
-            result.to_csv(f'output/{run_name}/scores/{meta_Row}_Summary.csv',index=False)
+            result.to_csv(f'{scores_dir}/{meta_Row}_Summary.csv', index=False)
 
     

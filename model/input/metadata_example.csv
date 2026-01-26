@@ -1,0 +1,21 @@
+country,MODEL_ID,predictor,num_predictors,environmentalArg,model,Rep,ROW_ID,Seed,v1_ROW_ID
+cluster:1,9ecegww66jilch,"{'migrations_per_1k': 0, 'mnths_since_outbreak_5_per_M': 0}",2,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",CatBoost,5,302510,1792562,
+cluster:1,gnbrkb6nugxsbw,"{'MCV2': 0, 'cases_1M_12z': 0}",2,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",gradient boosting,4,454,304946,1114
+cluster:1,z7kexeipfb950v,"{'mnths_since_outbreak_5_per_M': 0, 'prop_prev_rolling_24_mnths_outbreak_5M': 0}",2,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",CatBoost,10,303190,1187670,
+cluster:1,7y46a79c8379ke,"{'birth_per_1k': 0, 'cases_1M_60z': 0}",2,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",XGBRegressor,7,982,948145,2302
+cluster:1,lvhzh4c2tybcbk,"{'mnths_since_outbreak_20_cuml_per_M': 0, 'outgoing_air_passengers': 0}",2,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",gradient boosting,8,2633,667344,5993
+CMR,42vghvcenec2c5,"{'MCV2': 0, 'mnths_since_outbreak_5_per_M': 0, 'prop_prev_rolling_12_mnths_outbreak_5M': 0}",3,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",CatBoost,14,337694,71666,
+CMR,frssh8dhllqs9g,"{'birth_per_1k': 0, 'outgoing_air_passengers': 0, 'prop_prev_rolling_12_mnths_outbreak_5M': 0}",3,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",gradient boosting,3,97893,1552456,191013
+CMR,t1mgvgwh3qea7q,"{'MCV2': 0, 'incoming_air_passengers': 0, 'cases_1M_12z': 0}",3,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",gradient boosting,10,98860,1837832,192820
+CMR,f47reon3ub5duv,"{'MCV2': 0, 'mnths_since_outbreak_20_cuml_per_M': 0}",2,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",gradient boosting,5,97130,1487456,189290
+CMR,s08oeypjw87o0w,"{'mnths_since_outbreak_20_cuml_per_M': 0, 'prop_prev_rolling_12_mnths_outbreak_5M': 0, 'cases_1M_12z': 0}",3,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",XGBRegressor,10,99280,1234515,193480
+NGA,ygpzqggmo1ck58,"{'mnths_since_outbreak_5_per_M': 0, 'mnths_since_SIA': 0}",2,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",Bagging regressor,11,375326,1526927,
+NGA,wod99ufha7wtyu,"{'mnths_since_outbreak_5_per_M': 0, 'mnths_since_SIA': 0, 'outgoing_air_passengers': 0}",3,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",gradient boosting,1,375601,2405,
+NGA,b3uy7xqpt7553s,"{'mnths_since_outbreak_20_cuml_per_M': 0, 'mnths_since_SIA': 0}",2,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",gradient boosting,13,201733,1025882,390373
+NGA,dnl28jld9v6tmo,"{'mnths_since_outbreak_5_per_M': 0, 'incoming_air_passengers': 0}",2,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",Bagging regressor,13,375478,1754770,
+NGA,tmf4xb7bt49ssf,"{'mnths_since_outbreak_20_cuml_per_M': 0, 'outgoing_air_passengers': 0}",2,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",gradient boosting,8,201743,1875763,390443
+PAK,fkhudlsrk2rngl,"{'outgoing_air_passengers': 0, 'prop_prev_rolling_12_mnths_outbreak_5M': 0, 'cases_1M_12z': 0}",3,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",Random Forest,5,210380,1427189,406460
+PAK,05ofw7qgj073bl,"{'mnths_since_outbreak_20_cuml_per_M': 0, 'prop_prev_rolling_24_mnths_outbreak_5M': 0}",2,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",gradient boosting,8,205703,1462956,397643
+PAK,ud3mad649fuuee,"{'outgoing_air_passengers': 0, 'cases_1M_12z': 0}",2,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",Random Forest,2,206057,1738754,398657
+PAK,cp54tidgbr38e5,"{'outgoing_air_passengers': 0, 'prop_prev_rolling_12_mnths_outbreak_5M': 0, 'cases_1M_12z': 0}",3,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",XGBRegressor,1,210391,1009431,406471
+PAK,t0lyjtepuvrito,"{'mnths_since_outbreak_5_per_M': 0, 'cases_1M_36z': 0}",2,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",Bagging regressor,4,377269,1321457,

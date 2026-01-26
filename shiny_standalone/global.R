@@ -10,9 +10,7 @@
 # - Compare binary outbreak predictions vs observed data
 # - Explore model rankings based on various performance metrics
 #
-# Author: Ginkgo Biosecurity
-# Date: September 17, 2025
-# Version: 1.0
+# Contact: Amanda Meadows ~ amanda.meadows612@gmail.com 
 ############################################
 
 # Enable Shiny reactivity logging for debugging
@@ -42,15 +40,44 @@ num_cols <- c("Combine_RMSE5", "v_Combine_RMSE5",
               "Train_R2", "v_Train_R2")
 
 # Load main summary table from file system containing model performance metrics
-summaryTable <- fread("data/sample_summaryTable.csv", na.strings = "")
+# Try to load compiled summaries (both selection and validation), fallback to sample data
+# If both selection and validation summaries exist, combine them
+run_name <- "test_run"  # Update this to match your run name
+selection_summary <- paste0("../model/output/", run_name, "_selection_compiled_summary.csv")
+validation_summary <- paste0("../model/output/", run_name, "_validation_compiled_summary.csv")
+generic_summary <- paste0("../model/output/", run_name, "_compiled_summary.csv")
+
+summary_list <- list()
+if (file.exists(selection_summary)) {
+  summary_list[["selection"]] <- fread(selection_summary, na.strings = "")
+  message("Loaded selection compiled summary table")
+}
+if (file.exists(validation_summary)) {
+  summary_list[["validation"]] <- fread(validation_summary, na.strings = "")
+  message("Loaded validation compiled summary table")
+}
+
+if (length(summary_list) > 0) {
+  # Combine selection and validation summaries if both exist
+  summaryTable <- rbindlist(summary_list, fill = TRUE)
+  message(paste("Combined", length(summary_list), "summary table(s) from model output"))
+} else if (file.exists(generic_summary)) {
+  # Fallback to generic compiled summary (for backward compatibility)
+  summaryTable <- fread(generic_summary, na.strings = "")
+  message("Loaded generic compiled summary table from model output")
+} else {
+  summaryTable <- fread("data/sample_summaryTable.csv", na.strings = "")
+  message("Loaded sample summary table (compiled summaries not found)")
+}
 
 # Process summary table: convert numeric columns and round to 3 decimal places
 summaryTable[, (num_cols) := lapply(.SD, as.numeric), .SDcols = num_cols]
 summaryTable[, (num_cols) := lapply(.SD, function(x) round(x, 3)), .SDcols = num_cols]
 
-# Select relevant columns for the application
-table_cols <- c("ID", "MODEL_ID", "country", "predictor", "model", "Prediction_Tier", "v_Prediction_Tier", num_cols)
-examineDat <- summaryTable[, ..table_cols]
+# Select relevant columns for the application (handle missing columns gracefully)
+table_cols <- c("ID", "MODEL_ID", "country", "predictor", "model", num_cols)
+available_table_cols <- intersect(table_cols, names(summaryTable))
+examineDat <- summaryTable[, ..available_table_cols]
 
 # Create country selection list with ISO3 codes and full country names
 country_list <- sort(summaryTable[, unique(ID)])
@@ -99,7 +126,12 @@ get_plot_dat <-function(summ_dt, iso3, col_name, n = NULL, cutoff_dat, by_config
     if(is.null(by_config)){
       out_summ <- summ_dt[ID == iso3,  head(.SD, n)]
     }else{
-      out_summ <- summ_dt[ID == iso3,  head(.SD, n), by = .(run, is_cluster_run)]
+      # Handle missing run or is_cluster_run columns
+      if ("run" %in% names(summ_dt) && "is_cluster_run" %in% names(summ_dt)) {
+        out_summ <- summ_dt[ID == iso3,  head(.SD, n), by = .(run, is_cluster_run)]
+      } else {
+        out_summ <- summ_dt[ID == iso3,  head(.SD, n)]
+      }
     }
   }
   
@@ -107,10 +139,27 @@ get_plot_dat <-function(summ_dt, iso3, col_name, n = NULL, cutoff_dat, by_config
   out_summ[, rank := frank(get(col_name), ties.method = "dense")]
   
   # Process selection period time series data
-  s_out_tables <- s_iso3_tables[out_summ, .SD, on = .(ID, ROW_ID)]
-  s_out_tables[out_summ, `:=`(is_cluster_run = i.is_cluster_run,
-                              MODEL_ID = i.MODEL_ID,
-                              model = i.model), on = .(ID, ROW_ID)]
+  # Merge on ROW_ID if available, otherwise try MODEL_ID
+  if ("ROW_ID" %in% names(s_iso3_tables) && "ROW_ID" %in% names(out_summ)) {
+    s_out_tables <- s_iso3_tables[out_summ, .SD, on = .(ID, ROW_ID)]
+  } else if ("MODEL_ID" %in% names(s_iso3_tables) && "MODEL_ID" %in% names(out_summ)) {
+    s_out_tables <- s_iso3_tables[out_summ, .SD, on = .(ID, MODEL_ID)]
+  } else {
+    s_out_tables <- s_iso3_tables[out_summ, .SD, on = .(ID)]
+  }
+  
+  # Add columns from summary table if they exist
+  if ("is_cluster_run" %in% names(out_summ)) {
+    s_out_tables[out_summ, is_cluster_run := i.is_cluster_run, on = .(ID, ROW_ID = ROW_ID)]
+  } else {
+    s_out_tables[, is_cluster_run := "no"]
+  }
+  if ("MODEL_ID" %in% names(out_summ) && !"MODEL_ID" %in% names(s_out_tables)) {
+    s_out_tables[out_summ, MODEL_ID := i.MODEL_ID, on = .(ID, ROW_ID = ROW_ID)]
+  }
+  if ("model" %in% names(out_summ)) {
+    s_out_tables[out_summ, model := i.model, on = .(ID, ROW_ID = ROW_ID)]
+  }
   s_out_tables[cutoff_dat, cutoff_date := i.s_cutoff_date, on = .(ID = ISO3)]
   s_out_tables[cutoff_dat, end_date := i.s_end_date, on = .(ID = ISO3)]
   s_out_tables[, run_period := "selection"]
@@ -119,9 +168,21 @@ get_plot_dat <-function(summ_dt, iso3, col_name, n = NULL, cutoff_dat, by_config
   if(nrow(v_iso3_tables)>0){
     
     # Get validation time series tables
-    v_out_tables <- v_iso3_tables[out_summ, .SD, on = .(ID, MODEL_ID)]
-    v_out_tables[out_summ, `:=`(is_cluster_run = i.is_cluster_run,
-                                model = i.model), on = .(ID, MODEL_ID)]
+    if ("MODEL_ID" %in% names(v_iso3_tables) && "MODEL_ID" %in% names(out_summ)) {
+      v_out_tables <- v_iso3_tables[out_summ, .SD, on = .(ID, MODEL_ID)]
+    } else {
+      v_out_tables <- v_iso3_tables[out_summ, .SD, on = .(ID)]
+    }
+    
+    # Add columns from summary table if they exist
+    if ("is_cluster_run" %in% names(out_summ)) {
+      v_out_tables[out_summ, is_cluster_run := i.is_cluster_run, on = .(ID, MODEL_ID = MODEL_ID)]
+    } else {
+      v_out_tables[, is_cluster_run := "no"]
+    }
+    if ("model" %in% names(out_summ)) {
+      v_out_tables[out_summ, model := i.model, on = .(ID, MODEL_ID = MODEL_ID)]
+    }
     v_out_tables[cutoff_dat, cutoff_date := i.v_cutoff_date, on = .(ID = ISO3)]
     v_out_tables[cutoff_dat, end_date := i.v_end_date, on = .(ID = ISO3)]
     v_out_tables[, run_period := "validation"]
@@ -134,10 +195,18 @@ get_plot_dat <-function(summ_dt, iso3, col_name, n = NULL, cutoff_dat, by_config
   }
   
   # Add ranking and format dates
-  out_tables[out_summ, rank := i.rank, on = .(ID, ROW_ID)]
+  if ("ROW_ID" %in% names(out_tables) && "ROW_ID" %in% names(out_summ)) {
+    out_tables[out_summ, rank := i.rank, on = .(ID, ROW_ID)]
+  } else if ("MODEL_ID" %in% names(out_tables) && "MODEL_ID" %in% names(out_summ)) {
+    out_tables[out_summ, rank := i.rank, on = .(ID, MODEL_ID)]
+  }
   out_tables[, ds := as.Date(ds)]
-  out_tables[, MODEL_ID := ifelse(model %in% c("boosted heavy", "diverse"), paste0("E-", MODEL_ID), paste0("S-", MODEL_ID))]
-  out_tables[, model := NULL]
+  
+  # Format MODEL_ID if model column exists
+  if ("model" %in% names(out_tables) && "MODEL_ID" %in% names(out_tables)) {
+    out_tables[, MODEL_ID := ifelse(model %in% c("boosted heavy", "diverse"), paste0("E-", MODEL_ID), paste0("S-", MODEL_ID))]
+    out_tables[, model := NULL]
+  }
   return(out_tables)
 }
 

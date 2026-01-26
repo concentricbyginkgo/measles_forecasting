@@ -11,17 +11,27 @@ This repository provides a complete pipeline for measles outbreak forecasting us
 2. **Grid Search**: Use R scripts in `grid_search/` to identify optimal predictors
 3. **Environment Setup**: Create Python environment with required packages (see Environment Setup section)
 4. **Model Training**: Use `model/FinalModelStage1Runs.ipynb` or `model/RunFromFunction.ipynb` for model training and forecasting
-5. **Model Validation** (Optional): Launch the Shiny app in `shiny_standalone/` for interactive model validation and visualization
+5. **Output Compilation**: Run scripts in `model_output_processing/` to compile model outputs for visualization
+6. **Model Validation** (Optional): Launch the Shiny app in `shiny_standalone/` for interactive model validation and visualization
 
 ## Repository Structure
 
 ```
 measles_forecasting/
-├── data_ingestion_pipeline/   # R scripts for data processing (1-7)
+├── data_ingestion_pipeline/   # R scripts for model input data processing (1-7)
 ├── grid_search/               # R scripts for predictor selection and metadata generation
 ├── model/                     # Core Python modules and Jupyter notebooks
+│   ├── output/               # Model run outputs (organized by run_name)
+│   │   └── {run_name}/
+│   │       ├── tables/        # Individual time series projection files
+│   │       └── scores/        # Individual model summary files
+├── model_output_processing/   # R scripts to compile model outputs for visualization
 ├── model_comparison_pipeline/ # Model evaluation and visualization tools
 └── shiny_standalone/          # Interactive Shiny web application for model validation
+    └── data/                  # Compiled data for Shiny app
+        └── tables/
+            ├── selection/     # Selection period time series tables
+            └── validation/    # Validation period time series tables
 ```
 
 ## Data Ingestion Pipeline
@@ -58,6 +68,34 @@ The `grid_search/` directory contains R scripts for predictor selection and mode
 
 This pipeline helps identify the most relevant predictors for each country before running the full machine learning models.
 
+## Complete Workflow
+
+The typical workflow from data to visualization:
+
+1. **Data Ingestion** → Process raw data into `model/input/processed_measles_model_data.csv`
+2. **Grid Search** → Generate metadata with optimal predictor combinations
+3. **Model Training** → Run models using notebooks, outputs saved to `model/output/{run_name}/`
+4. **Output Compilation** → Compile outputs using `model_output_processing/` scripts
+5. **Visualization** → Launch Shiny app to explore results
+
+### Model Training Output
+
+When you run model training (via `RunFromFunction.ipynb` or `FinalModelStage1Runs.ipynb`), outputs are saved to:
+```
+model/output/{run_name}/
+├── tables/
+│   └── {ROW_ID}_{country}_Projection.csv  # Time series projections
+└── scores/
+    └── {ROW_ID}_Summary.csv                # Model performance metrics
+```
+
+### Post-Training Processing
+
+After training, compile outputs for visualization:
+1. **Compile Summaries**: Run `1_compile_summary_table.R` (set `run_type = "selection"` or `"validation"`)
+2. **Compile Time Series**: Run `2_compile_time_series_tables.R` (set `run_type` to match)
+3. **Launch Shiny App**: The app will automatically load compiled outputs
+
 ## Forecasting Models
 
 ### Environment Setup
@@ -69,7 +107,7 @@ mamba create -n measles_forecasting python=3.11
 mamba activate measles_forecasting
 mamba install neuralprophet scikit-learn statsmodels jupyterlab pandas numpy \
               geopandas multiprocess matplotlib scipy country_converter seaborn \
-              xgboost catboost lightgbm ordpy
+              xgboost catboost lightgbm ordpy statsforecast
 ```
 
 ### Core Python Modules (`model/`)
@@ -106,23 +144,26 @@ The main notebook for model training and forecasting. This notebook integrates a
 #### Metadata-Driven Training (`RunFromFunction.ipynb`)
 Alternative workflow that uses metadata from the grid search pipeline to systematically train models:
 
-- Reads metadata configurations from `grid_search/metadata_example.csv`
+- Reads metadata configurations from `model/input/metadata_example.csv`
 - Uses `fitOne.py` functions for individual model training
 - Supports batch processing of multiple model configurations
 - Integrates with the grid search pipeline outputs
+- Outputs organized by `run_name` in `model/output/{run_name}/`
+  - Individual projection files: `tables/{ROW_ID}_{country}_Projection.csv`
+  - Individual summary files: `scores/{ROW_ID}_Summary.csv`
 
 #### Time Series Evaluation (`TTSEval.ipynb`)
 Specialized notebook for time series model evaluation and testing.
 
 #### Advanced Features
-- **Hyperparameter optimization** via `EpiAnnealer.py`
+- **Hyperparameter optimization** via `EpiAnnealer.py` # !NOTE! This is experimental
 - **Seasonality analysis** using `SeasonalityMetrics.py`
 - **Custom loss functions** defined in `LossFunctions.py`
 - **Multi-algorithm comparison** through `ModelSweeps.py`
 
 ## Model Features
 
-### Supported ML Algorithms
+### Example Supported ML Algorithm Examples
 - **XGBoost** - Gradient boosting framework
 - **CatBoost** - Categorical boosting
 - **LightGBM** - Gradient boosting
@@ -130,7 +171,7 @@ Specialized notebook for time series model evaluation and testing.
 - **Bagging Regressor** - Bootstrap aggregating
 - **Gradient Boosting** - Scikit-learn implementation
 
-### Data Sources
+### Data Sources (Measles Case Study)
 - **Epidemiological**: WHO measles surveillance data
 - **Climate**: Gridded precipitation and temperature data
 - **Socioeconomic**: World Bank indicators, migration data
@@ -139,7 +180,7 @@ Specialized notebook for time series model evaluation and testing.
 - **Travel**: Air passenger flows
 
 ### Key Features
-- Country-specific and clustered modeling approaches
+- Country-specific and pooled modeling approaches
 - Time series cross-validation
 - Outbreak probability predictions
 - Environmental and social determinants integration
@@ -155,14 +196,78 @@ The model expects `input/processed_measles_model_data.csv` generated by the data
 - **Socioeconomic**: Birth rates, migration, development indicators
 - **Immunization**: Vaccination coverage and campaign data
 
+## Model Output Processing Pipeline
+
+After model training, the `model_output_processing/` directory contains R scripts to compile individual model outputs into formats suitable for visualization and analysis.
+
+### Directory Structure
+
+Model outputs are organized by run name:
+```
+model/output/{run_name}/
+├── tables/          # Individual projection files: {ROW_ID}_{country}_Projection.csv
+└── scores/          # Individual summary files: {ROW_ID}_Summary.csv
+```
+
+### Compilation Scripts
+
+1. **`1_compile_summary_table.R`** - Compiles individual summary statistics into a single table
+   - Reads all `{ROW_ID}_Summary.csv` files from `model/output/{run_name}/scores/`
+   - Combines them with metadata
+   - Outputs: `model/output/{run_name}_{run_type}_compiled_summary.csv`
+   - **Important**: Set `run_type` to `"selection"` or `"validation"` to indicate the evaluation window
+
+2. **`2_compile_time_series_tables.R`** - Compiles time series projections by country
+   - Reads all `{ROW_ID}_{country}_Projection.csv` files from `model/output/{run_name}/tables/`
+   - Combines projections by country and merges with observed data
+   - Outputs to `shiny_standalone/data/tables/{run_type}/` (where `run_type` is "selection" or "validation")
+   - **Important**: Set `run_type` to match your compilation - determines output subdirectory
+
+### Usage
+
+For **selection** runs:
+```r
+run_name <- "my_selection_run"
+run_type <- "selection"
+# Run both compilation scripts with these settings
+```
+
+For **validation** runs:
+```r
+run_name <- "my_validation_run"
+run_type <- "validation"
+# Run both compilation scripts with these settings
+```
+
+### Key Features
+
+- **Run Type Flag**: Distinguishes between selection and validation evaluation windows
+- **Automatic Directory Organization**: Tables written to appropriate subdirectories
+- **Error Handling**: Comprehensive validation and error reporting
+- **Metadata Integration**: Combines model outputs with configuration metadata
+
 ## Output Format
 
-All projection files contain:
+### Individual Model Outputs
+
+All projection files (`{ROW_ID}_{country}_Projection.csv`) contain:
 - **`ID`**: Country ISO3 code
 - **`ds`**: Date/timestamp  
-- **`y`**: Observed measles incidence
+- **`y`**: Observed measles incidence (if available)
 - **`yhat1`**: Model-projected incidence
 - **`ROW_ID`**: Metadata identifier
+- Additional columns: `MODEL_ID`, outbreak indicators, cumulative values
+
+All summary files (`{ROW_ID}_Summary.csv`) contain:
+- Performance metrics: Test/Train MSE, MAE, R²
+- Binary classification metrics: Sensitivity, Specificity, F1 Score
+- Model configuration: method, geography, predictor variables
+- Data quality metrics: coverage, seasonality scores
+
+### Compiled Outputs
+
+- **Compiled Summary**: Single CSV with all model performance metrics and metadata
+- **Compiled Time Series**: Country-level CSVs with all model projections for that country
 
 ## Model Comparison Pipeline
 
@@ -175,7 +280,18 @@ The `model_comparison_pipeline/` directory contains tools for evaluating and com
 
 ## Interactive Model Validation (`shiny_standalone/`)
 
-The `shiny_standalone/` directory contains a comprehensive Shiny web application for interactive model validation and visualization:
+The `shiny_standalone/` directory contains a comprehensive Shiny web application for interactive model validation and visualization.
+
+### Prerequisites
+
+Before running the Shiny app, you must compile your model outputs using the scripts in `model_output_processing/`:
+
+1. Run `1_compile_summary_table.R` for both selection and validation runs (set `run_type` appropriately)
+2. Run `2_compile_time_series_tables.R` for both selection and validation runs (set `run_type` appropriately)
+
+The compiled outputs will be automatically placed in:
+- `shiny_standalone/data/tables/selection/` - Selection period time series
+- `shiny_standalone/data/tables/validation/` - Validation period time series
 
 ### Key Features
 - **Interactive Country Selection** - Choose from countries with ISO3 codes for detailed analysis
@@ -183,30 +299,49 @@ The `shiny_standalone/` directory contains a comprehensive Shiny web application
 - **Epidemiological Curve Visualization** - Compare observed vs predicted case counts over time
 - **Binary Outcome Analysis** - Visualize outbreak prediction accuracy using heatmaps
 - **Model Selection & Validation** - Separate analysis for training and validation periods
+- **Automatic Data Loading** - Automatically loads compiled summaries from `model/output/` directory
 
 ### Application Structure
 - **`ui.R`** - User interface definition with responsive Bootstrap layout
 - **`server.R`** - Server logic for data processing and visualization
 - **`global.R`** - Global variables, functions, and data loading
-- **`data/`** - Sample datasets including cutoff dates and summary tables
+  - Automatically loads compiled summaries (selection and/or validation)
+  - Falls back to sample data if compiled summaries not found
+- **`data/`** - Compiled datasets for visualization
+  - **`tables/selection/`** - Selection period time series by country
+  - **`tables/validation/`** - Validation period time series by country
+  - **`cutoff_date_by_country.csv`** - Cutoff dates for evaluation periods
+  - **`sample_summaryTable.csv`** - Sample summary table (fallback)
 - **`www/`** - Static web assets (CSS, images, favicon)
 - **Documentation** - Complete user guide (`Measles_Model_Validation_App_Documentation.html`)
 
 ### Running the Application
+
 ```r
 # Install required packages
-install.packages(c("shiny", "data.table", "plotly", "ggplot2", "DT", "viridis"))
+install.packages(c("shiny", "data.table", "plotly", "ggplot2", "DT", "viridis", 
+                   "countrycode", "lubridate"))
 
-# Run the application
+# Update run_name in global.R to match your compiled outputs (default: "test_run")
+# Then run the application
 shiny::runApp("shiny_standalone/")
 ```
+
+### Data Loading
+
+The app automatically:
+1. Looks for compiled summaries: `model/output/{run_name}_{run_type}_compiled_summary.csv`
+2. Combines selection and validation summaries if both exist
+3. Falls back to generic compiled summary if run_type-specific not found
+4. Falls back to sample data if no compiled summaries found
+
+Update the `run_name` variable in `global.R` to match your model run name.
 
 The application provides an intuitive interface for exploring model performance across different countries and time periods, making it easy to validate model predictions and compare performance metrics.
 
 ## Documentation
 
 - **Social data README**: `data_ingestion_pipeline/README_Social_Series.txt`
-- **Model comparison documentation**: `model_comparison_pipeline/INV-059412_GinkgoBiosecurity_Output 7_Model Comparison Pipeline Documentation_12092024.pdf`
 - **Shiny app user guide**: `shiny_standalone/Measles_Model_Validation_App_Documentation.html`
 
 ## Notes for Public Use

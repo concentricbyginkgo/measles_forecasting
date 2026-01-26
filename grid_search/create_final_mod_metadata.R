@@ -1,11 +1,13 @@
 library(data.table)
 library(digest)
-outfile_name <- "run_metadata.csv"
-out_path <- "~/measles_forecasting/grid_search/"
-best_pred_by_country <- fread("univariate_country_results.csv")
-best_pred_by_country <- best_pred_by_country[!(predictor %in% c("passengers_from_iso3_reporting_cases", "passengers_to_iso3_reporting_cases"))]
 
-correlated_vars <- fread("correlation_results.csv")
+# ! UPATE PATHS & OPTIONS HERE ! #
+test_output <- TRUE # TRUE for testing (prints first 10 rows), FALSE for full output
+outfile_name <- "run_metadata.csv"
+out_path <- "~/python_projects/measles_forecasting/model/input/"
+best_pred_by_country <- fread("./grid_search/univariate_country_results.csv")
+
+correlated_vars <- fread("./grid_search/correlation_results.csv")
 correlated_vars <- correlated_vars[p_value<0.2 & correlation>0.7]
 
 # Create separate table for climate variables
@@ -97,10 +99,8 @@ models <- c("Random Forest",
             "Bagging regressor", 
             "CatBoost",
             "gradient boosting",
-            "XGBoost",
-            "boosted heavy",
-            "diverse")
-#"boosted heavy",
+            "XGBoost")
+#"boosted heavy", # ensemble options
 #"diverse")
 # Create all combinations of countries, predictor sets and models
 final_combinations <- CJ(
@@ -141,17 +141,21 @@ out_combinations[, num_predictors := lengths(strsplit(predictor, "\\|"))]
 out_combinations[, environmentalArg := "{'mean_temp': 3, 'mean_precip_mm_per_day': 3}"]
 out_combinations
 # Generate MODEL_ID (using first 12 characters of a hash)
-out_combinations[, MODEL_ID := substr(digest(paste(country, predictor, model), algo = "md5"), 1, 12), 
-                 by = .(country, predictor, model)]
+out_combinations[, MODEL_ID := substr(digest(paste(ISO3, predictor, model), algo = "md5"), 1, 12), 
+                 by = .(ISO3, predictor, model)]
 out_combinations[, .N, by = .(MODEL_ID)][N!=15]
 # Add row numbers for unique model IDs
 out_combinations[, ROW_ID := .I]
-out_combinations[, Seed := sample(1:2000000, .N)]
+out_combinations[, Seed := sample(1:.N*5, .N, replace = FALSE)]
 out_combinations[, .N, by = .(Seed)][N>1]
 
 # Reorder and select columns to match target format
 setnames(out_combinations, "ISO3", "country")
 final_output <- out_combinations[, .(MODEL_ID, country, predictor = predictor_json, num_predictors, environmentalArg, model, Rep, ROW_ID, Seed)]
 final_output[, .N, by = .(MODEL_ID)]
-fwrite(final_output, paste0(outpath, outfile_name))
+
+if(test_output) {
+  final_output <- final_output[1:10]
+}
+fwrite(final_output, paste0(out_path, outfile_name))
 

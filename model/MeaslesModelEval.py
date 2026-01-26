@@ -6,7 +6,7 @@
 ###      * USES AUTOETS TO FORWARD PROJECT SEASONAL PREDICTORS          ###
 ###      * IMPLEMENTS GLOBAL-LOCAL MODELLING (MULTI GEOGRAPHY)          ###
 ###                                                                     ###
-###             Contact: James Schlitt ~ jschlitt@ginkgobioworks.com    ###
+###             Contact: James Schlitt ~ schlittdatasci@gmail.com       ###
 ###########################################################################
 
 
@@ -352,6 +352,7 @@ def initModel(simObject,
               binaryLabelMetric,
               useCache,
               testStatsWindow,
+              metaRow,
               monthsForward,
               fuzzReplicates,
               fuzzStd):
@@ -381,13 +382,12 @@ def initModel(simObject,
     simObject.fuzzReplicates = fuzzReplicates
     simObject.fuzzStd = fuzzStd
     simObject.unshifted = dict()
+    simObject.metaRow = metaRow
 
-    if prefix.endswith('/'):
-        if not os.path.exists(f'output/tables/{prefix}'):
-            os.makedirs(f'output/tables/{prefix}')
-    elif prefix != '' and not prefix.endswith('_'):
-        prefix += '_'
-
+    # Clean up prefix (run_name) - remove trailing slashes/underscores
+    if prefix.endswith('/') or prefix.endswith('_'):
+        prefix = prefix.rstrip('/_')
+    
     simObject.prefix = prefix
 
     prepCurves(simObject,
@@ -486,11 +486,10 @@ def projectPredictor(country, var, delay, simObject):
             autoETSInstance = AutoETS(season_length=12)
             df_sf = df_train.copy()
             df_sf['unique_id'] = 'series'
-            sf = StatsForecast(df=df_sf,
-                               models=[autoETSInstance],
+            sf = StatsForecast(models=[autoETSInstance],
                                freq='MS',
                                n_jobs=-1)
-            sf.fit()
+            sf.fit(df_sf)
             pred = sf.predict(h=postLag).reset_index()
             pred = pred[['ds', 'AutoETS']].rename(columns={'AutoETS': var})
             if n_stub > 0:
@@ -810,18 +809,44 @@ def evaluateModel(simObject):
 
 
 
-def exportTables(simObject, directory = 'output/tables'):
+def exportTables(simObject, directory = None):
     """Exports prepped data csvs from a trained run"""
-
-    if not os.path.exists(directory):
-        os.makedirs(directory)
     
-    hashStr = simObject.hash
+    # Construct directory path based on prefix (run_name)
+    if directory is None:
+        if simObject.prefix and simObject.prefix != '':
+            # Remove trailing slash or underscore from prefix if present
+            run_name = simObject.prefix.rstrip('/_')
+            tables_dir = f'output/{run_name}/tables'
+            scores_dir = f'output/{run_name}/scores'
+        else:
+            tables_dir = 'output/tables'
+            scores_dir = 'output/scores'
+    else:
+        tables_dir = directory
+        scores_dir = directory.replace('/tables', '/scores') if '/tables' in directory else directory
+    
+    # Create directories if they don't exist
+    if not os.path.exists(tables_dir):
+        os.makedirs(tables_dir, exist_ok=True)
+    if not os.path.exists(scores_dir):
+        os.makedirs(scores_dir, exist_ok=True)
+    
+    # Export time series tables: {ROW_ID}_{country}_Projection.csv
     for country, table in simObject.trained['plotDfs'].items():
-        fileOut = f'{directory}/{simObject.prefix}{hashStr}_{country}_Projection.csv'
-        table.to_csv(fileOut,index=False)
-        
-    summaryRef = f'{directory}/{simObject.prefix}{hashStr}_Summary.csv'
+        if simObject.metaRow is not None:
+            fileOut = f'{tables_dir}/{simObject.metaRow}_{country}_Projection.csv'
+        else:
+            # Fallback if metaRow is not set
+            fileOut = f'{tables_dir}/{simObject.hash}_{country}_Projection.csv'
+        table.to_csv(fileOut, index=False)
+    
+    # Export summary statistics: {ROW_ID}_Summary.csv
+    if simObject.metaRow is not None:
+        summaryRef = f'{scores_dir}/{simObject.metaRow}_Summary.csv'
+    else:
+        # Fallback if metaRow is not set
+        summaryRef = f'{scores_dir}/{simObject.hash}_Summary.csv'
     evaluateModel(simObject).to_csv(summaryRef)
     
 
@@ -849,7 +874,7 @@ def plotTTS(simObject):
     plt.xlabel("Month/Year")
     plt.ylabel(simObject.depVar)
     plt.title(f"{simObject.country} {simObject.depVar} vs predictors {simObject.indepVars}\nMethod: {simObject.method}")
-    plt.savefig(f'output/figures/{simObject.hash}.png')
+    plt.savefig(f'output/figures/{simObject.metaRow}_{country}.png')
 
 
     
@@ -876,7 +901,8 @@ class npLaggedTTS:
                  testStatsWindow = 9,
                  monthsForward = 0,
                  fuzzReplicates = 0,
-                 fuzzStd = 0.01):
+                 fuzzStd = 0.01,
+                 metaRow = None):
         """
         Initialize the model parameters
         """
@@ -898,6 +924,7 @@ class npLaggedTTS:
                   binaryLabelMetric,
                   useCache,
                   testStatsWindow,
+                  metaRow,
                   monthsForward,
                   0,
                   0)
@@ -989,7 +1016,8 @@ class sklGradientBoostingRegression:
                  testStatsWindow = 9,
                  monthsForward = 0,
                  fuzzReplicates = 0,
-                 fuzzStd = 0.01):
+                 fuzzStd = 0.01,
+                 metaRow = None):
         """
         Initialize the model parameters
         """
@@ -1011,6 +1039,7 @@ class sklGradientBoostingRegression:
                   binaryLabelMetric,
                   useCache,
                   testStatsWindow,
+                  metaRow,
                   monthsForward,
                   fuzzReplicates,
                   fuzzStd)
@@ -1200,7 +1229,8 @@ class sklGeneric:
                  ensembleModels = [],
                  ensembleStacker = 'stacking regressor',
                  ensembleEstimator = 'ridgeCV',
-                 ensemblePassthrough = True):
+                 ensemblePassthrough = True,
+                 metaRow = None):
         """
         Initialize the model parameters
         """
@@ -1239,6 +1269,7 @@ class sklGeneric:
                   binaryLabelMetric,
                   useCache,
                   testStatsWindow,
+                  metaRow,
                   monthsForward,
                   fuzzReplicates,
                   fuzzStd)

@@ -6,7 +6,6 @@
 #### specifications to your machine.
 
 library(ncdf4)
-library(ncdu)
 library(data.table)
 library(sp)
 library(rgdal)
@@ -36,8 +35,9 @@ lat <- ncvar_get(nc_data, "lat", verbose = F)
 t <- ncvar_get(nc_data, "time")
 
 # figure out the origin for Julian dates stored in t by looking at metadata
-nc_metadata <- ncdump::NetCDF("data_ingestion_pipeline/local_data/precip.mon.mean.nc")
-nc_metadata # hours since 1800-01-01 00:00
+# Note: Check the NetCDF file attributes to confirm the time origin
+# Common origins: hours since 1800-01-01 00:00 or days since 1900-01-01
+# If needed, use: ncatt_get(nc_data, "time", "units") to get the actual units
 t_date <- as.Date(as.POSIXct(t*3600,origin='1800-01-01 00:00'))
 
 # 4) extract the precip data
@@ -95,9 +95,11 @@ get_country <- function(dat, grp, out_location){
 detectCores() # To decide how many cores to distribute job over
 # X corresponds to grp; may need to update if you updated parallel_id in data table
 t0 <- Sys.time()
-precip_dat_list <- mclapply(get_country, dat = precip_dat, 
+precip_dat_list <- mclapply(X = 1:10, 
+                            FUN = get_country, 
+                            dat = precip_dat, 
                             out_location = "data_ingestion_pipeline/processed_data/", 
-                            X = 1:10, mc.cores = 2)
+                            mc.cores = 2)
 Sys.time()-t0
 
 # compile_data: a function to read in each data file written
@@ -107,7 +109,7 @@ compile_data <- function(grp, out_location){
   return(dat)
 }
 
-precip_dat_iso2 <- rbindlist(lapply(compile_data, X = 1:10))
+precip_dat_iso2 <- rbindlist(lapply(X = 1:10, FUN = compile_data, out_location = "data_ingestion_pipeline/processed_data/"))
 precip_dat_iso2[Name == "Namibia", ISO2 := "NA"]
 
 # If you want to write the data before taking the mean value by country, do it now

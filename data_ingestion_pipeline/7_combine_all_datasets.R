@@ -4,6 +4,7 @@
 #### and 5_road_data_processing.R for use in measles forecast model training.
 
 library(data.table)
+library(countrycode)
 
 # =============================================================================
 # SETUP: Working directory and data paths
@@ -111,10 +112,12 @@ MeaslesDat[roadsDat, total_road_length_km := i.total_road_length_km, on = .(ISO3
 # Load WHO SIA (vaccination campaign) data
 # This captures mass vaccination campaigns that can impact disease dynamics
 SIA_dat <- fread(paste0(processed_dat_drive, "SIA_summary.csv"), na.strings = "")
+SIA_dat[, start_date := as.Date(start_date)]
+SIA_dat[, COUNTRY := countrycode::countrycode(sourcevar = COUNTRY, origin = "country.name", destination = "iso3c")]
+SIA_dat <- SIA_dat[!is.na(COUNTRY)]
 
 # Merge SIA status with measles data by country, year, and campaign start date
-# Note: using SIA_run variable (seems to be a processed version of SIA_dat)
-MeaslesDat[SIA_run, SIA_status := i.STATUS, on = .(ISO3 = COUNTRY, Year = YEAR, date = start_date)]
+MeaslesDat[SIA_dat, SIA_status := i.STATUS, on = .(ISO3 = COUNTRY, Year = YEAR, date = start_date)]
 # Set countries/periods with no SIA activity to "no" 
 MeaslesDat[is.na(SIA_status), SIA_status := "no"]
 

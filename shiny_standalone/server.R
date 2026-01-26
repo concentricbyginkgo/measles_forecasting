@@ -64,9 +64,17 @@ shinyServer(function(input, output, session) {
         guide = "none"
       ) +
       # Labels and title
+      subtitle_text <- ""
+      if ("model" %in% names(top_iso3_plot_dat)) {
+        subtitle_text <- top_iso3_plot_dat$model[1]
+      }
+      if ("predictor" %in% names(top_iso3_plot_dat)) {
+        if (subtitle_text != "") subtitle_text <- paste0(subtitle_text, "\n")
+        subtitle_text <- paste0(subtitle_text, top_iso3_plot_dat$predictor[1])
+      }
       labs(
         title = top_iso3_plot_dat$ID[1],
-        subtitle = paste(top_iso3_plot_dat$model[1], "\n", top_iso3_plot_dat$predictor[1]),
+        subtitle = ifelse(subtitle_text != "", subtitle_text, ""),
         x = "Date", y = "Cases per 1M", color = "Series"
       ) +
       theme_minimal() +
@@ -160,9 +168,17 @@ shinyServer(function(input, output, session) {
           guide = "none"
         ) +
         # Labels and title
+        subtitle_text <- ""
+        if ("model" %in% names(top_iso3_plot_dat)) {
+          subtitle_text <- top_iso3_plot_dat$model[1]
+        }
+        if ("predictor" %in% names(top_iso3_plot_dat)) {
+          if (subtitle_text != "") subtitle_text <- paste0(subtitle_text, "\n")
+          subtitle_text <- paste0(subtitle_text, top_iso3_plot_dat$predictor[1])
+        }
         labs(
           title = top_iso3_plot_dat$ID[1],
-          subtitle = paste(top_iso3_plot_dat$model[1], "\n", top_iso3_plot_dat$predictor[1]),
+          subtitle = ifelse(subtitle_text != "", subtitle_text, ""),
           x = "Date", y = "Cases per 1M", color = "Series"
         ) +
         theme_minimal() +

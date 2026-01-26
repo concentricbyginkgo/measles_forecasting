@@ -3,7 +3,7 @@
 ###      * APPLIES AND LOGS PREPROCESSOR TRANSFORMATIONS TO DATA        ###
 ###      * USES LOCAL OR REMOTE CONFIG FILES LISTING OPS BY COLUMN      ###
 ###                                                                     ###
-###             Contact: James Schlitt ~ jschlitt@ginkgobioworks.com    ###
+###             Contact: James Schlitt ~ schlittdatasci@gmail.com       ###
 ###########################################################################
 
 
