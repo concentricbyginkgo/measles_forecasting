@@ -1,5 +1,5 @@
 # EpiFlowML
-AI-enabled epidemiological forecasting using machine learning models.
+A Modular Framework for Standardized and Reproducible Epidemiological Forecasting
 Contact: ameadows@ginkgobioworks.com
 
 ## Overview
