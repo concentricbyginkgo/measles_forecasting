@@ -1,5 +1,5 @@
-# Measles Forecasting
-AI-enabled measles forecasting using machine learning models.
+# EpiFlowML 
+A Modular Framework for Standardized and Reproducible Epidemiological Forecasting
 Contact: ameadows@ginkgobioworks.com
 
 ## Overview
