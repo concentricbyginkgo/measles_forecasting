@@ -14,12 +14,32 @@ test_compilation_scripts <- function() {
   
   # Get base directory - handle different ways script might be called
   script_path <- commandArgs(trailingOnly = FALSE)
+  base_dir <- NULL
+  
+  # Try to get script file path
   if (any(grepl("--file=", script_path))) {
     script_file <- sub("--file=", "", script_path[grepl("--file=", script_path)][1])
-    base_dir <- dirname(dirname(normalizePath(script_file)))
-  } else {
-    # Fallback: assume we're in test/ directory
-    base_dir <- dirname(getwd())
+    if (file.exists(script_file)) {
+      base_dir <- dirname(dirname(normalizePath(script_file)))
+    }
+  }
+  
+  # Fallback methods
+  if (is.null(base_dir)) {
+    # Try current working directory approach
+    if (file.exists("test/test_compilation_scripts.R")) {
+      base_dir <- getwd()
+    } else if (file.exists("../test/test_compilation_scripts.R")) {
+      base_dir <- dirname(getwd())
+    } else {
+      # Last resort: assume we're in test/ directory
+      base_dir <- dirname(getwd())
+    }
+  }
+  
+  # Validate base_dir exists
+  if (is.null(base_dir) || !dir.exists(base_dir)) {
+    stop(paste("Could not determine base directory. Tried:", base_dir))
   }
   test_dir <- file.path(base_dir, "test")
   test_data_dir <- file.path(test_dir, "data")

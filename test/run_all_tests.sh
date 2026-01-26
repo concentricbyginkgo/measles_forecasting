@@ -5,7 +5,8 @@
 ###      * Provides summary of test results                             ###
 ###########################################################################
 
-set -e  # Exit on error
+# Don't use set -e here - we want to catch errors and continue to show summary
+set +e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
@@ -24,7 +25,7 @@ TESTS_FAILED=0
 echo "--------------------------------------------------------------------------------"
 echo "Test 1: Python Imports and Syntax"
 echo "--------------------------------------------------------------------------------"
-if python3 "$SCRIPT_DIR/test_python_imports.py"; then
+if python3 "$SCRIPT_DIR/test_python_imports.py" 2>&1; then
     echo "✓ Python tests passed"
     ((TESTS_PASSED++))
 else
@@ -37,7 +38,7 @@ echo ""
 echo "--------------------------------------------------------------------------------"
 echo "Test 2: R Script Syntax"
 echo "--------------------------------------------------------------------------------"
-if Rscript "$SCRIPT_DIR/test_r_syntax.R"; then
+if Rscript "$SCRIPT_DIR/test_r_syntax.R" 2>&1; then
     echo "✓ R syntax tests passed"
     ((TESTS_PASSED++))
 else
@@ -50,7 +51,7 @@ echo ""
 echo "--------------------------------------------------------------------------------"
 echo "Test 3: File Structure"
 echo "--------------------------------------------------------------------------------"
-if python3 "$SCRIPT_DIR/test_file_structure.py"; then
+if python3 "$SCRIPT_DIR/test_file_structure.py" 2>&1; then
     echo "✓ File structure tests passed"
     ((TESTS_PASSED++))
 else
@@ -63,7 +64,7 @@ echo ""
 echo "--------------------------------------------------------------------------------"
 echo "Test 4: Compilation Script Integration"
 echo "--------------------------------------------------------------------------------"
-if Rscript "$SCRIPT_DIR/test_compilation_scripts.R"; then
+if Rscript "$SCRIPT_DIR/test_compilation_scripts.R" 2>&1; then
     echo "✓ Compilation script tests passed"
     ((TESTS_PASSED++))
 else
