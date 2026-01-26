@@ -4,7 +4,7 @@ library(digest)
 # ! UPATE PATHS & OPTIONS HERE ! #
 test_output <- TRUE # TRUE for testing (prints first 10 rows), FALSE for full output
 outfile_name <- "run_metadata.csv"
-out_path <- "~/python_projects/measles_forecasting/model/input/"
+out_path <- "~/python_projects/epiflowml/model/input/"
 best_pred_by_country <- fread("./grid_search/univariate_country_results.csv")
 
 correlated_vars <- fread("./grid_search/correlation_results.csv")

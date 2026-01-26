@@ -9,7 +9,7 @@ library(tidyr)
 library(lubridate)
 
 # 1) Update your local drive!
-working_drive <- "~/measles_forecasting/"
+working_drive <- "~/python_projects/epiflowml/"
 setwd(working_drive)
 
 # Create directory to write processed data

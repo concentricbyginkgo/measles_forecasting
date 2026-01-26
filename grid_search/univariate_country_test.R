@@ -6,7 +6,7 @@ library(lmerTest)
 # note this script was run using measles case data obtained April 4, 2025
 # running it with refreshed data will likely yield different results.
 
-working_dir <- "~/python_projects/measles_forecasting/" # updated if needed!
+working_dir <- "~/python_projects/epiflowml/" # updated if needed!
 setwd(working_dir)
 inputDat <- fread("./model/input/processed_measles_model_data.csv", na.strings = "")
 setnames(inputDat, "outbreak_20_cuml_per_M", "outbreak")

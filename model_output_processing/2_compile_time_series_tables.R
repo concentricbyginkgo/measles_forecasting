@@ -19,8 +19,8 @@ library(lubridate)
 #### READ IN DATA ###
 # !UPDATE PATHS IF NECESSARY! 
 
-local_dir <- "~/python_projects/measles_forecasting/model/"
-shiny_dir <- "~/python_projects/measles_forecasting/shiny_standalone/data/"
+local_dir <- "~/python_projects/epiflowml/model/"
+shiny_dir <- "~/python_projects/epiflowml/shiny_standalone/data/"
 
 # Run name (should match the run_name used in fitOne.py)
 run_name <- "test_run"

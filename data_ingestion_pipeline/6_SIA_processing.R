@@ -14,7 +14,7 @@ library(readxl)
 library(countrycode)
 
 # 1) Update your local drive!
-working_drive <- "~/measles_forecasting"
+working_drive <- "~/python_projects/epiflowml"
 setwd(working_drive)
 ## NOTE: processed data in "local_data/" for individual predictors
 ## are not included in repo (due to size constraints)

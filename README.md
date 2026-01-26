@@ -1,5 +1,5 @@
-# Measles Forecasting
-AI-enabled measles forecasting using machine learning models.
+# EpiFlowML
+AI-enabled epidemiological forecasting using machine learning models.
 Contact: ameadows@ginkgobioworks.com
 
 ## Overview
@@ -17,7 +17,7 @@ This repository provides a complete pipeline for measles outbreak forecasting us
 ## Repository Structure
 
 ```
-measles_forecasting/
+epiflowml/
 ├── data_ingestion_pipeline/   # R scripts for model input data processing (1-7)
 ├── grid_search/               # R scripts for predictor selection and metadata generation
 ├── model/                     # Core Python modules and Jupyter notebooks
@@ -103,8 +103,8 @@ After training, compile outputs for visualization:
 **Recommended**: Use mamba/conda with Python 3.11
 
 ```bash
-mamba create -n measles_forecasting python=3.11
-mamba activate measles_forecasting
+mamba create -n epiflowml python=3.11
+mamba activate epiflowml
 mamba install neuralprophet scikit-learn statsmodels jupyterlab pandas numpy \
               geopandas multiprocess matplotlib scipy country_converter seaborn \
               xgboost catboost lightgbm ordpy statsforecast
@@ -377,7 +377,7 @@ The test suite includes four main test categories:
 
 #### Run All Tests (Recommended)
 ```bash
-cd /path/to/measles_forecasting
+cd /path/to/epiflowml
 ./test/run_all_tests.sh
 ```
 
