@@ -1,0 +1,20 @@
+# epiflowml dependencies (version pins for reproducibility)
+# Install: pip install -r requirements.txt
+# Pins use minimum versions (>=); lock exact versions with: pip freeze > requirements-lock.txt
+
+catboost>=1.2.0
+country-converter>=0.3.0
+IPython>=8.0.0
+lightgbm>=4.0.0
+matplotlib>=3.7.0
+multiprocess>=0.70.0
+neuralprophet>=0.8.0
+numpy>=1.24.0,<3.0.0
+ordpy>=1.0.0
+pandas>=2.0.0,<3.0.0
+scikit-learn>=1.3.0,<2.0.0
+scipy>=1.11.0
+seaborn>=0.12.0
+statsforecast>=2.0.0
+statsmodels>=0.14.0
+xgboost>=2.0.0,<4.0.0

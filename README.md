@@ -7,9 +7,9 @@ Contact: ameadows@ginkgobioworks.com
 This repository provides a complete pipeline for measles outbreak forecasting using machine learning approaches. The system processes epidemiological, climate, and socioeconomic data to predict measles case incidence at the country level.
 
 ### Quick Start
-1. **Data Processing**: Run scripts 1-7 in `data_ingestion_pipeline/` 
+1. **Data Processing**: Run scripts 1-7 in `data_ingestion_pipeline/` (R dependencies: see `requirements-r.txt`)
 2. **Grid Search**: Use R scripts in `grid_search/` to identify optimal predictors
-3. **Environment Setup**: Create Python environment with required packages (see Environment Setup section)
+3. **Environment Setup**: Create Python environment with `pip install -r requirements.txt` (see Environment Setup section)
 4. **Model Training**: Use `model/FinalModelStage1Runs.ipynb` or `model/RunFromFunction.ipynb` for model training and forecasting
 5. **Output Compilation**: Run scripts in `model_output_processing/` to compile model outputs for visualization
 6. **Model Validation** (Optional): Launch the Shiny app in `shiny_standalone/` for interactive model validation and visualization
@@ -18,6 +18,8 @@ This repository provides a complete pipeline for measles outbreak forecasting us
 
 ```
 epiflowml/
+├── requirements.txt           # Python dependencies (version-pinned)
+├── requirements-r.txt         # R dependencies
 ├── data_ingestion_pipeline/   # R scripts for model input data processing (1-7)
 ├── grid_search/               # R scripts for predictor selection and metadata generation
 ├── model/                     # Core Python modules and Jupyter notebooks
@@ -46,6 +48,12 @@ The data ingestion pipeline contains **7 R scripts** that process raw case and p
 5. **`5_road_data_processing.R`** - Processes road density as development proxy
 6. **`6_SIA_processing.R`** - **NEW**: Processes Supplementary Immunization Activities data
 7. **`7_combine_all_datasets.R`** - Combines all processed datasets into final model input
+
+### R Dependencies
+Install required R packages from the project list:
+```r
+install.packages(readLines("requirements-r.txt"))
+```
 
 ### Important Notes
 - **Scripts 1-6 must complete successfully before running script 7**
@@ -100,15 +108,15 @@ After training, compile outputs for visualization:
 
 ### Environment Setup
 
-**Recommended**: Use mamba/conda with Python 3.11
+**Recommended**: Use mamba/conda with Python 3.11, then install from the project's dependency list:
 
 ```bash
 mamba create -n epiflowml python=3.11
 mamba activate epiflowml
-mamba install neuralprophet scikit-learn statsmodels jupyterlab pandas numpy \
-              geopandas multiprocess matplotlib scipy country_converter seaborn \
-              xgboost catboost lightgbm ordpy statsforecast
+pip install -r requirements.txt
 ```
+
+The `requirements.txt` file lists all Python dependencies with version pins. For a fully locked environment, run `pip freeze > requirements-lock.txt` after installing.
 
 ### Core Python Modules (`model/`)
 
@@ -318,9 +326,8 @@ The compiled outputs will be automatically placed in:
 ### Running the Application
 
 ```r
-# Install required packages
-install.packages(c("shiny", "data.table", "plotly", "ggplot2", "DT", "viridis", 
-                   "countrycode", "lubridate"))
+# Install required R packages (from project root)
+install.packages(readLines("requirements-r.txt"))
 
 # Update run_name in global.R to match your compiled outputs (default: "test_run")
 # Then run the application
@@ -405,8 +412,8 @@ Rscript test/test_compilation_scripts.R
 
 ### Test Requirements
 
-- **Python 3.11+** with required packages (see Environment Setup section)
-- **R 4.0+** with packages: `data.table`, `parallel`, `lubridate`, `countrycode`
+- **Python 3.11+** with packages from `requirements.txt` (see Environment Setup section)
+- **R 4.0+** with packages from `requirements-r.txt`
 - All dependencies from the main workflow must be installed
 
 ### Test Data
@@ -452,7 +459,7 @@ For detailed test documentation, see `test/README.md`.
 
 This repository has been prepared for public use:
 - ✅ **Local data processing** - All data sources use local files
-- ✅ **Complete environment specification** - Dependencies clearly defined
+- ✅ **Complete environment specification** - Python: `requirements.txt` (version-pinned); R: `requirements-r.txt`
 - ✅ **Comprehensive documentation** - Updated README and comments
 
 Users must run the data ingestion pipeline to generate required input files, as processed data files are not included due to size constraints.

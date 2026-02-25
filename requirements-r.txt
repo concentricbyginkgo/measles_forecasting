@@ -1,0 +1,29 @@
+# epiflowml R dependencies
+# Install from R console: install.packages(readLines("requirements-r.txt"))
+# Or: for (p in readLines("requirements-r.txt")) if (!requireNamespace(p, quietly = TRUE)) install.packages(p)
+#
+# Note: parallel is used in the code but is part of base R (no install needed).
+# For version pinning and reproducible environments, consider using renv: renv::init() then renv::snapshot()
+
+car
+countrycode
+data.table
+digest
+DT
+fontawesome
+ggplot2
+haven
+htmltools
+knitr
+lme4
+lmerTest
+lubridate
+ncdf4
+plotly
+readxl
+rgdal
+rworldmap
+shiny
+sp
+tidyr
+viridis
