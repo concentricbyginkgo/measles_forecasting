@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "model_input.schema.json",
+  "title": "EpiFlowML model input row (long-format CSV)",
+  "description": "One row of the ingested CSV consumed by MeaslesDataLoader.prepData. ISO3 and date are required for the loader. depVar and predictors are experiment-specific; additional columns use additionalProperties. For column semantics and preprocessor rules see data_ingestion_pipeline/MODEL_INPUT_SCHEMA.md and model/input/PreprocessorConfig.csv.",
+  "type": "object",
+  "required": ["ISO3", "date"],
+  "properties": {
+    "ISO3": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$",
+      "description": "ISO 3166-1 alpha-3 country or geography code."
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Calendar date for the row; monthly MS alignment recommended. Parsed in Python and renamed to ds."
+    }
+  },
+  "additionalProperties": true
+}

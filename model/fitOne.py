@@ -1,6 +1,8 @@
 ###########################################################################
 ###   fitOne.PY                                                         ###
 ###      * RUNS FORECAST MODEL FROM METADATA FILE SPECIFICATIONS        ###
+###      * OPTIONAL METADATA: depVar, Seed, environmentalArg,           ###
+###        binary_outbreak_threshold_per_m (binary classification)     ###
 ###      * WRITES FORECAST TABLE AND MODEL PERFORMANCE SCORE            ###
 ###      * WRITES TO RUN_NAME DIRECTORY IN S3                           ###
 ###                                                                     ###
@@ -28,6 +30,29 @@ from catboost import CatBoostRegressor
 from xgboost.sklearn import XGBRegressor
 from lightgbm import LGBMRegressor
 
+
+def _optional_binary_label_metric_kw(metadata, row):
+    """
+    If metadata specifies an incidence threshold (cases per million), return
+    {'binaryLabelMetric': f} with f(x) -> 1 if x >= threshold else 0.
+    Otherwise return {} so model wrappers use MeaslesModelEval.defaultBinaryMetric.
+    Recognized columns (first match wins): binary_outbreak_threshold_per_m,
+    binary_outbreak_threshold.
+    """
+    for col in ('binary_outbreak_threshold_per_m', 'binary_outbreak_threshold'):
+        if col not in metadata.columns:
+            continue
+        raw = metadata.loc[metadata['ROW_ID'] == row, col].values[0]
+        if pd.isna(raw) or str(raw).strip() == '':
+            return {}
+        try:
+            th = float(raw)
+        except (ValueError, TypeError):
+            return {}
+        return {'binaryLabelMetric': (lambda t: (lambda x: x >= t))(th)}
+    return {}
+
+
 def fitOne(metadata, ROW, run_name):
     
     #predictorLag = metadata.loc[metadata['ROW_ID'] == ROW,'predictorLag'].values[0]
@@ -35,10 +60,42 @@ def fitOne(metadata, ROW, run_name):
     model_name = metadata.loc[metadata['ROW_ID'] == ROW, 'model'].values[0]
     predictor = metadata.loc[metadata['ROW_ID'] == ROW, 'predictor'].values[0]
     indepVars = ast.literal_eval(metadata.loc[metadata['ROW_ID'] == ROW, 'predictor'].values[0])
-    environmentalArg = ast.literal_eval(metadata.loc[metadata['ROW_ID'] == ROW, 'environmentalArg'].values[0])
-    randomState = metadata.loc[metadata['ROW_ID'] == ROW, 'Seed'].values[0]
+    if 'environmentalArg' in metadata.columns:
+        env_raw = metadata.loc[metadata['ROW_ID'] == ROW, 'environmentalArg'].values[0]
+        if pd.notna(env_raw) and str(env_raw).strip() != '':
+            try:
+                environmentalArg = ast.literal_eval(str(env_raw).strip())
+                if not isinstance(environmentalArg, dict):
+                    environmentalArg = {}
+            except (SyntaxError, ValueError, TypeError):
+                environmentalArg = {}
+        else:
+            environmentalArg = {}
+    else:
+        environmentalArg = {}
+    if 'Seed' in metadata.columns:
+        seed_val = metadata.loc[metadata['ROW_ID'] == ROW, 'Seed'].values[0]
+        if pd.notna(seed_val) and str(seed_val).strip() != '':
+            try:
+                randomState = int(seed_val)
+            except (ValueError, TypeError):
+                randomState = 1337
+        else:
+            randomState = 1337
+    else:
+        randomState = 1337
     meta_Row = metadata.loc[metadata['ROW_ID'] == ROW, 'ROW_ID'].values[0]
-   
+    if 'depVar' in metadata.columns:
+        dep_raw = metadata.loc[metadata['ROW_ID'] == ROW, 'depVar'].values[0]
+        if pd.notna(dep_raw) and str(dep_raw).strip() != '':
+            depVar = str(dep_raw).strip()
+        else:
+            depVar = 'cases_1M'
+    else:
+        depVar = 'cases_1M'
+
+    binary_kw = _optional_binary_label_metric_kw(metadata, ROW)
+
     prepArgs = dict()
     #indepVars = {predictor:predictorLag}
     indepVars.update(environmentalArg)
@@ -106,29 +163,32 @@ def fitOne(metadata, ROW, run_name):
     try:
         if type(model) is not dict:
             mlRun = model(country,
-                          'cases_1M',
+                          depVar,
                           indepVars = indepVars,
                           randomState = randomState,
                           metaRow = meta_Row,
-                          prefix = run_name)
+                          prefix = run_name,
+                          **binary_kw)
         elif 'ensembleModels' in model:
             # Handle ensemble models using sklGeneric with ensembleModels parameter
             mlRun = mm.sklGeneric(country,
-                                  'cases_1M',
+                                  depVar,
                                   indepVars = indepVars,
                                   ensembleModels = model['ensembleModels'],
                                   randomState = randomState,
                                   metaRow = meta_Row,
-                                  prefix = run_name)
+                                  prefix = run_name,
+                                  **binary_kw)
         elif type(model) is dict:
             # Handle single models using sklGeneric with modelArgs parameter
             mlRun = mm.sklGeneric(country,
-                                  'cases_1M',
+                                  depVar,
                                   indepVars = indepVars,
                                   modelArgs = model,
                                   randomState = randomState,
                                   metaRow = meta_Row,
-                                  prefix = run_name)
+                                  prefix = run_name,
+                                  **binary_kw)
         initialized = True
 
        

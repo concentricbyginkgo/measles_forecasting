@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "run_metadata.schema.json",
+  "title": "EpiFlowML run metadata row (fitOne.py)",
+  "description": "One row of the CSV passed to fitOne(metadata, ROW, run_name). predictor must ast.literal_eval to dict[str, int] (lags in months). depVar optional (default cases_1M). environmentalArg optional (default {}). Seed optional (default 1337). binary_outbreak_threshold_per_m optional: sets binaryLabelMetric to x>=threshold for classification metrics (else wrapper default >=2). See model/METADATA_RUN_SCHEMA.md.",
+  "type": "object",
+  "required": ["ROW_ID", "country", "model", "predictor"],
+  "properties": {
+    "ROW_ID": {
+      "description": "Unique run identifier; used in output filenames.",
+      "oneOf": [{ "type": "integer" }, { "type": "string", "minLength": 1 }]
+    },
+    "country": {
+      "type": "string",
+      "minLength": 1,
+      "description": "ISO3 code or pooled selection key (e.g. cluster:1)."
+    },
+    "model": {
+      "type": "string",
+      "enum": [
+        "neural prophet",
+        "gradient boosting",
+        "AdaBoost regressor",
+        "Bagging regressor",
+        "Extra Trees",
+        "Random Forest",
+        "ElasticNet",
+        "SGD",
+        "SVR",
+        "BayesianRidge",
+        "KernelRidge",
+        "CatBoost",
+        "Linear regression",
+        "XGBRegressor",
+        "LGBMR",
+        "diverse",
+        "diverse low n",
+        "boosted heavy",
+        "boosted alpha"
+      ]
+    },
+    "depVar": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Optional. Dependent variable column name; default cases_1M if absent or blank."
+    },
+    "predictor": {
+      "type": "string",
+      "minLength": 2,
+      "description": "Python dict literal string, e.g. \"{'MCV2': 0, 'cases_1M_12z': 0}\""
+    },
+    "environmentalArg": {
+      "type": "string",
+      "description": "Optional. Python dict literal; omit column or leave blank for no extra predictors. \"{}\" explicitly."
+    },
+    "Seed": {
+      "type": "integer",
+      "description": "Optional. Random seed for the estimator; default 1337 if column absent or null."
+    },
+    "binary_outbreak_threshold_per_m": {
+      "type": "number",
+      "description": "Optional. If set, fitOne passes binaryLabelMetric lambda x: x >= this value for evaluateCountry metrics. Else MeaslesModelEval defaultBinaryMetric (>=2)."
+    },
+    "binary_outbreak_threshold": {
+      "type": "number",
+      "description": "Optional alias for binary_outbreak_threshold_per_m (used only if per_m column absent)."
+    },
+    "MODEL_ID": {
+      "type": "string",
+      "description": "Optional design hash; not read by fitOne.py."
+    },
+    "num_predictors": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Optional informational count."
+    },
+    "Rep": {
+      "type": "integer",
+      "description": "Optional replicate index for sweeps."
+    },
+    "v1_ROW_ID": {
+      "description": "Optional legacy crosswalk.",
+      "oneOf": [{ "type": "integer" }, { "type": "string" }, { "type": "null" }]
+    }
+  },
+  "additionalProperties": true
+}

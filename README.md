@@ -61,6 +61,16 @@ install.packages(readLines("requirements-r.txt"))
 - Climate processing is parallelized - tune parameters for your machine specifications
 - Manual downloading of raw datasets required (links provided in scripts)
 
+### Model input schema (Python contract)
+
+Ingestion must produce a **long-format** CSV that the Python loader can read (default: `model/input/processed_measles_model_data.csv`). Structural requirements, experiment-specific columns (`depVar`, `indepVars`), preprocessor alignment, and measles-specific coupling (for example `cases_1M` truncation in the loader) are documented in:
+
+- **[`data_ingestion_pipeline/MODEL_INPUT_SCHEMA.md`](data_ingestion_pipeline/MODEL_INPUT_SCHEMA.md)** — human-readable contract, **pooled (global-local) grouping and `selection` keys** (see §4), and new-pathogen checklist  
+- **[`data_ingestion_pipeline/schemas/model_input.schema.json`](data_ingestion_pipeline/schemas/model_input.schema.json)** — JSON Schema (required: `ISO3`, `date`; additional columns allowed)  
+- **[`model/input/example_minimal_model_input.csv`](model/input/example_minimal_model_input.csv)** — header-only example matching the canonical measles column set (no data rows)
+
+**Path alignment:** [`data_ingestion_pipeline/7_combine_all_datasets.R`](data_ingestion_pipeline/7_combine_all_datasets.R) writes `model_training_data.csv` at the repo root by default. Copy or symlink that file to `model/input/processed_measles_model_data.csv` (or change `MeaslesDataLoader.prepData` `defaultLoc`) before training.
+
 ## Grid Search Pipeline
 
 The `grid_search/` directory contains R scripts for predictor selection and model metadata generation:
@@ -73,6 +83,13 @@ The `grid_search/` directory contains R scripts for predictor selection and mode
 - **`univariate_country_results.csv`** - Results of univariate predictor analysis
 - **`correlation_results.csv`** - Correlation analysis between predictors
 - **`metadata_example.csv`** - Example metadata format for model configuration
+
+### Run metadata configuration schema
+
+Batch runs driven by CSV metadata (e.g. `fitOne.py`, `RunFromFunction.ipynb`) use a fixed set of columns and **`model`** string literals. For a **parameter table, types, defaults, and accepted `model` values**, see:
+
+- **[`model/METADATA_RUN_SCHEMA.md`](model/METADATA_RUN_SCHEMA.md)** — structured specification aligned with [`fitOne.py`](model/fitOne.py)
+- **[`model/schemas/run_metadata.schema.json`](model/schemas/run_metadata.schema.json)** — JSON Schema (draft-07) for one metadata row
 
 This pipeline helps identify the most relevant predictors for each country before running the full machine learning models.
 
@@ -152,7 +169,7 @@ The main notebook for model training and forecasting. This notebook integrates a
 #### Metadata-Driven Training (`RunFromFunction.ipynb`)
 Alternative workflow that uses metadata from the grid search pipeline to systematically train models:
 
-- Reads metadata configurations from `model/input/metadata_example.csv`
+- Reads metadata configurations from `model/input/metadata_example.csv` (schema: [`model/METADATA_RUN_SCHEMA.md`](model/METADATA_RUN_SCHEMA.md))
 - Uses `fitOne.py` functions for individual model training
 - Supports batch processing of multiple model configurations
 - Integrates with the grid search pipeline outputs
