@@ -2,7 +2,7 @@
 ###   fitOne.PY                                                         ###
 ###      * RUNS FORECAST MODEL FROM METADATA FILE SPECIFICATIONS        ###
 ###      * OPTIONAL METADATA: depVar, Seed, environmentalArg,           ###
-###        binary_outbreak_threshold_per_m (binary classification)     ###
+###        binary_outbreak_threshold, evaluate_binary_metrics (opt.)      ###
 ###      * WRITES FORECAST TABLE AND MODEL PERFORMANCE SCORE            ###
 ###      * WRITES TO RUN_NAME DIRECTORY IN S3                           ###
 ###                                                                     ###
@@ -31,26 +31,28 @@ from xgboost.sklearn import XGBRegressor
 from lightgbm import LGBMRegressor
 
 
-def _optional_binary_label_metric_kw(metadata, row):
-    """
-    If metadata specifies an incidence threshold (cases per million), return
-    {'binaryLabelMetric': f} with f(x) -> 1 if x >= threshold else 0.
-    Otherwise return {} so model wrappers use MeaslesModelEval.defaultBinaryMetric.
-    Recognized columns (first match wins): binary_outbreak_threshold_per_m,
-    binary_outbreak_threshold.
-    """
-    for col in ('binary_outbreak_threshold_per_m', 'binary_outbreak_threshold'):
-        if col not in metadata.columns:
-            continue
-        raw = metadata.loc[metadata['ROW_ID'] == row, col].values[0]
-        if pd.isna(raw) or str(raw).strip() == '':
-            return {}
-        try:
-            th = float(raw)
-        except (ValueError, TypeError):
-            return {}
-        return {'binaryLabelMetric': (lambda t: (lambda x: x >= t))(th)}
-    return {}
+def _metadata_eval_binary_kw(metadata, row):
+    """Variant B: explicit evaluate_binary_metrics=false -> off; else threshold T>=0
+    -> True + lambda x>=T; else True + defaultBinaryMetric (fitOne batch parity)."""
+    if 'evaluate_binary_metrics' in metadata.columns:
+        raw = metadata.loc[metadata['ROW_ID'] == row, 'evaluate_binary_metrics'].values[0]
+        if pd.notna(raw) and str(raw).strip() != '':
+            s = str(raw).strip().lower()
+            if s in ('0', 'false', 'no', 'n'):
+                return {'evaluate_binary_metrics': False}
+    if 'binary_outbreak_threshold' in metadata.columns:
+        raw = metadata.loc[metadata['ROW_ID'] == row, 'binary_outbreak_threshold'].values[0]
+        if pd.notna(raw) and str(raw).strip() != '':
+            try:
+                th = float(raw)
+            except (ValueError, TypeError):
+                pass
+            else:
+                if th >= 0:
+                    return {'evaluate_binary_metrics': True,
+                            'binaryLabelMetric': (lambda t: (lambda x: x >= t))(th)}
+    return {'evaluate_binary_metrics': True,
+            'binaryLabelMetric': mm.defaultBinaryMetric}
 
 
 def fitOne(metadata, ROW, run_name):
@@ -94,7 +96,7 @@ def fitOne(metadata, ROW, run_name):
     else:
         depVar = 'cases_1M'
 
-    binary_kw = _optional_binary_label_metric_kw(metadata, ROW)
+    binary_kw = _metadata_eval_binary_kw(metadata, ROW)
 
     prepArgs = dict()
     #indepVars = {predictor:predictorLag}
