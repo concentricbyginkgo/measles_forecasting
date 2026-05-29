@@ -1,6 +1,6 @@
 # EpiFlowML
 A Modular Framework for Standardized and Reproducible Epidemiological Forecasting
-Contact: ameadows@ginkgobioworks.com
+Contact: ameadows@perimeter.bio
 
 ## Overview
 
