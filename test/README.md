@@ -34,7 +34,7 @@ Rscript test/test_compilation_scripts.R
 ## Test Data
 
 The `test/data/` directory contains sample data files used for integration testing:
-- Sample metadata files
+- Sample metadata files (column **`geography`**, not `country`; matches [`fitOne.py`](../model/fitOne.py))
 - Sample summary statistics
 - Sample time series projections
 

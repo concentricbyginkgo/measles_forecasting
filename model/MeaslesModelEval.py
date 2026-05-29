@@ -355,8 +355,13 @@ def initModel(simObject,
               metaRow,
               monthsForward,
               fuzzReplicates,
-              fuzzStd):
-    """Generalized model initiation across wrappers"""
+              fuzzStd,
+              evaluate_binary_metrics=False):
+    """Generalized model initiation across wrappers.
+
+    Classification metrics in evaluateCountry run only when evaluate_binary_metrics
+    is True and binaryLabelMetric is not None (no implicit labeller).
+    """
     
     if monthsForward != 0:
         testSize = 0
@@ -376,6 +381,7 @@ def initModel(simObject,
     simObject.preprocessor = ep.getGoogleSheetConfig(preprocessor)
     simObject.dropLog = []
     simObject.binaryLabeller = binaryLabelMetric
+    simObject.evaluate_binary_metrics = bool(evaluate_binary_metrics)
     simObject.useCache = useCache
     simObject.testStatsWindow = testStatsWindow
     simObject.monthsForward = monthsForward
@@ -735,25 +741,32 @@ def evaluateCountry(simObject,country):
         mseTrain = mean_squared_error(yTrain, yTrainPred)
         maeTrain = mean_absolute_error(yTrain, yTrainPred)
         r2Train = r2_score(yTrain, yTrainPred)
-    
-        yTestBin = yTest.apply(simObject.binaryLabeller).astype(int)
-        yTestPredBin = yTestPred.apply(simObject.binaryLabeller).astype(int)
-        confMatrix = confusion_matrix(yTestBin, yTestPredBin, labels=[0, 1])
-    
-        if confMatrix.shape == (1, 1):
-            tn, fp, fn, tp = (confMatrix[0, 0], 0, 0, 0) if yTestBin.sum() == 0 else (0, 0, 0, confMatrix[0, 0])
-        elif confMatrix.shape == (1, 2):
-            tn, fp, fn, tp = (confMatrix[0, 0], confMatrix[0, 1], 0, 0)
-        elif confMatrix.shape == (2, 1):
-            tn, fp, fn, tp = (confMatrix[0, 0], 0, confMatrix[1, 0], 0)
+
+        run_binary = (getattr(simObject, 'evaluate_binary_metrics', False)
+                      and getattr(simObject, 'binaryLabeller', None) is not None)
+
+        if run_binary:
+            yTestBin = yTest.apply(simObject.binaryLabeller).astype(int)
+            yTestPredBin = yTestPred.apply(simObject.binaryLabeller).astype(int)
+            confMatrix = confusion_matrix(yTestBin, yTestPredBin, labels=[0, 1])
+
+            if confMatrix.shape == (1, 1):
+                tn, fp, fn, tp = (confMatrix[0, 0], 0, 0, 0) if yTestBin.sum() == 0 else (0, 0, 0, confMatrix[0, 0])
+            elif confMatrix.shape == (1, 2):
+                tn, fp, fn, tp = (confMatrix[0, 0], confMatrix[0, 1], 0, 0)
+            elif confMatrix.shape == (2, 1):
+                tn, fp, fn, tp = (confMatrix[0, 0], 0, confMatrix[1, 0], 0)
+            else:
+                tn, fp, fn, tp = confMatrix.ravel()
+
+            sensitivity = tp / (tp + fn) if (tp + fn) > 0 else np.nan
+            f1 = f1_score(yTestBin, yTestPredBin) if (tp > 0) else np.nan
+            npv = tn / (tn + fn) if (tn + fn) > 0 else np.nan
+            specificity = tn / (tn + fp) if (tn + fp) > 0 else np.nan
         else:
-            tn, fp, fn, tp = confMatrix.ravel()
-    
-        sensitivity = tp / (tp + fn) if (tp + fn) > 0 else np.nan
-        f1 = f1_score(yTestBin, yTestPredBin) if (tp > 0) else np.nan
-        npv = tn / (tn + fn) if (tn + fn) > 0 else np.nan
-        specificity = tn / (tn + fp) if (tn + fp) > 0 else np.nan
-    
+            sensitivity = specificity = f1 = npv = np.nan
+            tp = tn = fp = fn = np.nan
+
         result = {'Test MSE':mseTest,
                   'Test MAE':maeTest,
                   'Test R2':r2Test,
@@ -873,8 +886,8 @@ def plotTTS(simObject):
                   ax = ax,)
     plt.xlabel("Month/Year")
     plt.ylabel(simObject.depVar)
-    plt.title(f"{simObject.country} {simObject.depVar} vs predictors {simObject.indepVars}\nMethod: {simObject.method}")
-    plt.savefig(f'output/figures/{simObject.metaRow}_{country}.png')
+    plt.title(f"{simObject.selection} {simObject.depVar} vs predictors {simObject.indepVars}\nMethod: {simObject.method}")
+    plt.savefig(f'output/figures/{simObject.metaRow}_{simObject.selection}.png')
 
 
     
@@ -886,7 +899,7 @@ def plotTTS(simObject):
 
 class npLaggedTTS:
     def __init__(self,
-                 country,
+                 geography,
                  depVar,
                  indepVars,
                  prefix = '',
@@ -896,7 +909,8 @@ class npLaggedTTS:
                  randomState = 1337,
                  preprocessor = ep.tempConfigURL,
                  additionalPrep = dict(),
-                 binaryLabelMetric = defaultBinaryMetric,
+                 binaryLabelMetric = None,
+                 evaluate_binary_metrics = False,
                  useCache = False,
                  testStatsWindow = 9,
                  monthsForward = 0,
@@ -910,7 +924,7 @@ class npLaggedTTS:
         self.method = 'NeuralProphet lagged regressors'
 
         initModel(self,
-                  country,
+                  geography,
                   depVar,
                   indepVars,
                   projectionMethod,
@@ -927,7 +941,8 @@ class npLaggedTTS:
                   metaRow,
                   monthsForward,
                   0,
-                  0)
+                  0,
+                  evaluate_binary_metrics)
 
 
     def train(self):
@@ -1001,7 +1016,7 @@ class npLaggedTTS:
 
 class sklGradientBoostingRegression:
     def __init__(self,
-                 country,
+                 geography,
                  depVar,
                  indepVars,
                  prefix = '',
@@ -1011,7 +1026,8 @@ class sklGradientBoostingRegression:
                  randomState = 1337,
                  preprocessor = ep.tempConfigURL,
                  additionalPrep = dict(),
-                 binaryLabelMetric = defaultBinaryMetric,
+                 binaryLabelMetric = None,
+                 evaluate_binary_metrics = False,
                  useCache = False,
                  testStatsWindow = 9,
                  monthsForward = 0,
@@ -1025,7 +1041,7 @@ class sklGradientBoostingRegression:
         self.method = 'Scikit-learn gradient boosted regression'
 
         initModel(self,
-                  country,
+                  geography,
                   depVar,
                   indepVars,
                   projectionMethod,
@@ -1042,7 +1058,8 @@ class sklGradientBoostingRegression:
                   metaRow,
                   monthsForward,
                   fuzzReplicates,
-                  fuzzStd)
+                  fuzzStd,
+                  evaluate_binary_metrics)
     
     
     def train(self):
@@ -1208,7 +1225,7 @@ def prepEnsemble(models = 'diverse',
 
 class sklGeneric:
     def __init__(self,
-                 country,
+                 geography,
                  depVar,
                  indepVars,
                  prefix = '',
@@ -1220,7 +1237,8 @@ class sklGeneric:
                  preprocessor = ep.tempConfigURL,
                  additionalPrep = dict(),
                  initialized = False,
-                 binaryLabelMetric = defaultBinaryMetric,
+                 binaryLabelMetric = None,
+                 evaluate_binary_metrics = False,
                  useCache = False,
                  testStatsWindow = 9,
                  monthsForward = 0,
@@ -1255,7 +1273,7 @@ class sklGeneric:
         
         
         initModel(self,
-                  country,
+                  geography,
                   depVar,
                   indepVars,
                   projectionMethod,
@@ -1272,7 +1290,8 @@ class sklGeneric:
                   metaRow,
                   monthsForward,
                   fuzzReplicates,
-                  fuzzStd)
+                  fuzzStd,
+                  evaluate_binary_metrics)
 
         
 
@@ -1355,7 +1374,7 @@ helpText = """\n\narg 1 - Method
      - nplagged (NeuralProphet lagged regressors)
      - npfuture (NeuralProphet future regressors)
      - sklgbr (Scikit-learn gradient boosting regression trees)
-arg 2 - country
+arg 2 - geography (ISO3 or filter key, e.g. cluster:1)
 arg 3 - dependent variable
 arg 4 - independent variables
     Must be json formatted with not white space characters
@@ -1376,7 +1395,7 @@ if __name__ == "__main__":
         quit()
               
     method = args[0]
-    country = args[1]
+    geography = args[1]
     depVar = args[2]
     indepVars = ast.literal_eval(args[3])
     fileOut = args[4]
@@ -1398,10 +1417,12 @@ if __name__ == "__main__":
         ttsMethod = sklGradientBoostingRegression
 
     print("\nInitializing...")
-    ttsRun = ttsMethod(country,
+    ttsRun = ttsMethod(geography,
                        depVar,
                        indepVars = indepVars,
-                       testSize = testSize)
+                       testSize = testSize,
+                       evaluate_binary_metrics=True,
+                       binaryLabelMetric=defaultBinaryMetric)
     print("Training...")
     ttsRun.train()
     print("Evaluating...")

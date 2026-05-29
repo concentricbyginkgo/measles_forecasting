@@ -1,4 +1,4 @@
-country,MODEL_ID,predictor,num_predictors,environmentalArg,model,Rep,ROW_ID,Seed,v1_ROW_ID
+geography,MODEL_ID,predictor,num_predictors,environmentalArg,model,Rep,ROW_ID,Seed,v1_ROW_ID
 cluster:1,9ecegww66jilch,"{'migrations_per_1k': 0, 'mnths_since_outbreak_5_per_M': 0}",2,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",CatBoost,5,302510,1792562,
 cluster:1,gnbrkb6nugxsbw,"{'MCV2': 0, 'cases_1M_12z': 0}",2,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",gradient boosting,4,454,304946,1114
 cluster:1,z7kexeipfb950v,"{'mnths_since_outbreak_5_per_M': 0, 'prop_prev_rolling_24_mnths_outbreak_5M': 0}",2,"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}",CatBoost,10,303190,1187670,

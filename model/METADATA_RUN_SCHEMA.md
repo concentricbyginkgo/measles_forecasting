@@ -27,10 +27,10 @@ where `environmentalArg_dict` is **`{}`** if the **`environmentalArg`** column i
 
 | Column | Required by `fitOne` | Type | Default / if omitted | Description |
 |--------|----------------------|------|----------------------|-------------|
-| **`ROW_ID`** | **Yes** | Integer (recommended) or string unique per row | — | Primary key for the run; written into outputs and used in filenames (e.g. `{ROW_ID}_Summary.csv`, `{ROW_ID}_{country}_Projection.csv`). Compilation scripts often coerce summary filenames to numeric IDs. |
-| **`country`** | **Yes** | String | — | Passed as `selection` / first argument to the model wrapper: either a **3-letter ISO3** code or a **pooled filter key** such as `cluster:1` (must exist in `prepData()['filters']`). See [MODEL_INPUT_SCHEMA §4](../data_ingestion_pipeline/MODEL_INPUT_SCHEMA.md). |
+| **`ROW_ID`** | **Yes** | Integer (recommended) or string unique per row | — | Primary key for the run; written into outputs and used in filenames (e.g. `{ROW_ID}_Summary.csv`, `{ROW_ID}_{ISO3}_Projection.csv` per country curve in a run). Compilation scripts often coerce summary filenames to numeric IDs. |
+| **`geography`** | **Yes** | String | — | Passed as the first argument (`geography`) to the model wrapper and stored internally as `selection`: either a **3-letter ISO3** code or a **pooled filter key** such as `cluster:1` (must exist in `prepData()['filters']`). See [MODEL_INPUT_SCHEMA §4](../data_ingestion_pipeline/MODEL_INPUT_SCHEMA.md). |
 | **`model`** | **Yes** | String (controlled vocabulary) | — | Selects model class; must match one of the **exact strings** in §3 (case and spacing matter for most entries). |
-| **`depVar`** | No | String (column name) | **`cases_1M`** if the column is missing or the cell is blank / NaN | Dependent variable passed to the model wrapper (second argument after `selection`). Must exist in the model input CSV and have a preprocessor rule in [`PreprocessorConfig.csv`](input/PreprocessorConfig.csv) (same as [`MODEL_INPUT_SCHEMA`](../data_ingestion_pipeline/MODEL_INPUT_SCHEMA.md) §3). Does **not** change [`MeaslesDataLoader`](../model/MeaslesDataLoader.py) **`validityColumn`** truncation (still `cases_1M` unless you change the loader). |
+| **`depVar`** | No | String (column name) | **`cases_1M`** if the column is missing or the cell is blank / NaN | Dependent variable passed to the model wrapper (second argument after `geography`). Must exist in the model input CSV and have a preprocessor rule in [`PreprocessorConfig.csv`](input/PreprocessorConfig.csv) (same as [`MODEL_INPUT_SCHEMA`](../data_ingestion_pipeline/MODEL_INPUT_SCHEMA.md) §3). Does **not** change [`MeaslesDataLoader`](../model/MeaslesDataLoader.py) **`validityColumn`** truncation (still `cases_1M` unless you change the loader). |
 | **`predictor`** | **Yes** | String: Python **`dict`** literal | — | Disease / core predictors and their lags, e.g. `"{'MCV2': 0, 'cases_1M_12z': 0}"`. Keys must exist in the preprocessed curve and in [`PreprocessorConfig.csv`](input/PreprocessorConfig.csv). |
 | **`environmentalArg`** | No | String: Python **`dict`** literal, or empty | **`{}`** (no extra predictors) if the column is missing, the cell is blank / NaN, or parsing fails | Additional predictors (often climate), e.g. `"{'mean_temp': 3, 'mean_precip_mm_per_day': 3}"`. Same key and typing rules as `predictor`. You may omit the column entirely, or use a blank cell, or the literal `"{}"`. |
 | **`Seed`** | No | Integer | **`1337`** if the column is missing or the cell is empty / NaN | Random seed for the estimator (`randomState` in the wrapper). Omit the column when you do not need reproducibility per row. |
@@ -105,14 +105,14 @@ JSON Schema (draft-07) for one metadata row: [`schemas/run_metadata.schema.json`
 ## 6. Minimal valid row (conceptual)
 
 ```csv
-ROW_ID,country,predictor,model
+ROW_ID,geography,predictor,model
 999999,NGA,"{'MCV2': 0}",CatBoost
 ```
 
 or with explicit empty environmental block:
 
 ```csv
-ROW_ID,country,predictor,environmentalArg,model
+ROW_ID,geography,predictor,environmentalArg,model
 999999,NGA,"{'MCV2': 0}","{}",CatBoost
 ```
 
@@ -123,7 +123,7 @@ With no **`Seed`** column (or a blank seed), [`fitOne.py`](fitOne.py) uses **`ra
 With no **`depVar`** column (or a blank cell), the outcome defaults to **`cases_1M`**. Example with another regression target and **5/M** binary evaluation to align with [`model_output_processing/2_compile_time_series_tables.R`](../model_output_processing/2_compile_time_series_tables.R) Shiny columns:
 
 ```csv
-ROW_ID,country,depVar,binary_outbreak_threshold,predictor,model
+ROW_ID,geography,depVar,binary_outbreak_threshold,predictor,model
 999999,NGA,cases_1M,5,"{'MCV2': 0}",CatBoost
 ```
 

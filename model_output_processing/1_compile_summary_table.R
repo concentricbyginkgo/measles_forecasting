@@ -56,7 +56,7 @@ missing_rows <- meta[!(ROW_ID %in% completed_id)]
 
 if (nrow(missing_rows) > 0) {
   warning(paste("Warning: The following", nrow(missing_rows), "ROW_IDs from metadata do not have Summary files:"))
-  print(missing_rows[, .(ROW_ID, country, model)])
+  print(missing_rows[, .(ROW_ID, geography, model)])
 }
 
 read_summary_file <- function(filename){

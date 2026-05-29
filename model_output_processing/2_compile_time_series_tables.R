@@ -85,14 +85,17 @@ if (!"ROW_ID" %in% names(summaryTable)) {
   stop("Error: Summary table missing required column: ROW_ID")
 }
 
-# Handle different column names for country ID
+# Handle different column names for geography / ISO3 in summaries
 if ("ID" %in% names(summaryTable)) {
   country_col <- "ID"
+} else if ("geography" %in% names(summaryTable)) {
+  country_col <- "geography"
+  summaryTable[, ID := geography]
 } else if ("country" %in% names(summaryTable)) {
   country_col <- "country"
   summaryTable[, ID := country]
 } else {
-  stop("Error: Summary table missing country identifier column (ID or country)")
+  stop("Error: Summary table missing geography identifier column (ID, geography, or legacy country)")
 }
 
 if ("file" %in% names(summaryTable)) {

@@ -273,6 +273,7 @@ class epiAnnealer:
                                   self.depVar,
                                   indepVars = indepVars,
                                   binaryLabelMetric = self.binaryLabelMetric,
+                                  evaluate_binary_metrics = True,
                                   randomState = seed,
                                   useCache = False)
                 
@@ -282,6 +283,7 @@ class epiAnnealer:
                                           indepVars = indepVars,
                                           modelArgs = model,
                                           binaryLabelMetric = self.binaryLabelMetric,
+                                          evaluate_binary_metrics = True,
                                           randomState = seed,
                                           useCache = False)
     

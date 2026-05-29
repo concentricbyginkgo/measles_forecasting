@@ -58,7 +58,7 @@ def _metadata_eval_binary_kw(metadata, row):
 def fitOne(metadata, ROW, run_name):
     
     #predictorLag = metadata.loc[metadata['ROW_ID'] == ROW,'predictorLag'].values[0]
-    country = metadata.loc[metadata['ROW_ID'] == ROW, 'country'].values[0]
+    geography = metadata.loc[metadata['ROW_ID'] == ROW, 'geography'].values[0]
     model_name = metadata.loc[metadata['ROW_ID'] == ROW, 'model'].values[0]
     predictor = metadata.loc[metadata['ROW_ID'] == ROW, 'predictor'].values[0]
     indepVars = ast.literal_eval(metadata.loc[metadata['ROW_ID'] == ROW, 'predictor'].values[0])
@@ -108,7 +108,7 @@ def fitOne(metadata, ROW, run_name):
                       "Insufficient number of unique, valid measurements of the dependent variable.",
                       "Insufficent test data for analysis."]
 
-    nullResult = {'ID':country, 
+    nullResult = {'ID': geography, 
                   'method':model_name, 
                   'ROW_ID': meta_Row}
     
@@ -164,7 +164,7 @@ def fitOne(metadata, ROW, run_name):
     
     try:
         if type(model) is not dict:
-            mlRun = model(country,
+            mlRun = model(geography,
                           depVar,
                           indepVars = indepVars,
                           randomState = randomState,
@@ -173,7 +173,7 @@ def fitOne(metadata, ROW, run_name):
                           **binary_kw)
         elif 'ensembleModels' in model:
             # Handle ensemble models using sklGeneric with ensembleModels parameter
-            mlRun = mm.sklGeneric(country,
+            mlRun = mm.sklGeneric(geography,
                                   depVar,
                                   indepVars = indepVars,
                                   ensembleModels = model['ensembleModels'],
@@ -183,7 +183,7 @@ def fitOne(metadata, ROW, run_name):
                                   **binary_kw)
         elif type(model) is dict:
             # Handle single models using sklGeneric with modelArgs parameter
-            mlRun = mm.sklGeneric(country,
+            mlRun = mm.sklGeneric(geography,
                                   depVar,
                                   indepVars = indepVars,
                                   modelArgs = model,

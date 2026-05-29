@@ -6,7 +6,7 @@
   "type": "object",
   "required": [
     "ROW_ID",
-    "country",
+    "geography",
     "model",
     "predictor"
   ],
@@ -22,11 +22,6 @@
           "minLength": 1
         }
       ]
-    },
-    "country": {
-      "type": "string",
-      "minLength": 1,
-      "description": "ISO3 code or pooled selection key (e.g. cluster:1)."
     },
     "model": {
       "type": "string",
@@ -104,6 +99,11 @@
           "type": "null"
         }
       ]
+    },
+    "geography": {
+      "type": "string",
+      "minLength": 1,
+      "description": "ISO3 code or pooled selection key (e.g. cluster:1); passed as geography to model wrappers."
     }
   },
   "additionalProperties": true

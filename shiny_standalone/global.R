@@ -75,7 +75,7 @@ summaryTable[, (num_cols) := lapply(.SD, as.numeric), .SDcols = num_cols]
 summaryTable[, (num_cols) := lapply(.SD, function(x) round(x, 3)), .SDcols = num_cols]
 
 # Select relevant columns for the application (handle missing columns gracefully)
-table_cols <- c("ID", "MODEL_ID", "country", "predictor", "model", num_cols)
+table_cols <- c("ID", "MODEL_ID", "geography", "predictor", "model", num_cols)
 available_table_cols <- intersect(table_cols, names(summaryTable))
 examineDat <- summaryTable[, ..available_table_cols]
 

@@ -96,7 +96,7 @@ test_compilation_scripts <- function() {
   cat("\nCreating sample metadata...\n")
   sample_metadata <- data.table(
     ROW_ID = c("201731", "201732", "201733"),
-    country = c("NGA", "NGA", "NGA"),
+    geography = c("NGA", "NGA", "NGA"),
     MODEL_ID = c("test1", "test2", "test3"),
     model = c("gradient boosting", "CatBoost", "XGBRegressor"),
     predictor = c("temp,precip", "temp,precip", "temp,precip")

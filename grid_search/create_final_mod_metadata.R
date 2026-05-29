@@ -150,7 +150,7 @@ out_combinations[, Seed := sample(1:.N*5, .N, replace = FALSE)]
 out_combinations[, .N, by = .(Seed)][N>1]
 
 # Reorder and select columns to match target format
-setnames(out_combinations, "ISO3", "country")
+setnames(out_combinations, "ISO3", "geography")
 final_output <- out_combinations[, .(MODEL_ID, country, predictor = predictor_json, num_predictors, environmentalArg, model, Rep, ROW_ID, Seed)]
 final_output[, .N, by = .(MODEL_ID)]
 
