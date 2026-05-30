@@ -1,6 +1,6 @@
 # EpiFlowML
 A Modular Framework for Standardized and Reproducible Epidemiological Forecasting
-Contact: ameadows@ginkgobioworks.com
+Contact: ameadows@perimeter.bio
 
 ## Overview
 
@@ -109,7 +109,7 @@ When you run model training (via `RunFromFunction.ipynb` or `FinalModelStage1Run
 ```
 model/output/{run_name}/
 ├── tables/
-│   └── {ROW_ID}_{country}_Projection.csv  # Time series projections
+│   └── {ROW_ID}_{geography}_Projection.csv  # Time series projections
 └── scores/
     └── {ROW_ID}_Summary.csv                # Model performance metrics
 ```
@@ -174,7 +174,7 @@ Alternative workflow that uses metadata from the grid search pipeline to systema
 - Supports batch processing of multiple model configurations
 - Integrates with the grid search pipeline outputs
 - Outputs organized by `run_name` in `model/output/{run_name}/`
-  - Individual projection files: `tables/{ROW_ID}_{country}_Projection.csv`
+  - Individual projection files: `tables/{ROW_ID}_{geography}_Projection.csv`
   - Individual summary files: `scores/{ROW_ID}_Summary.csv`
 
 #### Time Series Evaluation (`TTSEval.ipynb`)
@@ -205,7 +205,7 @@ Specialized notebook for time series model evaluation and testing.
 - **Travel**: Air passenger flows
 
 ### Key Features
-- Country-specific and pooled modeling approaches
+- Geography-specific and pooled modeling approaches
 - Time series cross-validation
 - Outbreak probability predictions
 - Environmental and social determinants integration
@@ -230,7 +230,7 @@ After model training, the `model_output_processing/` directory contains R script
 Model outputs are organized by run name:
 ```
 model/output/{run_name}/
-├── tables/          # Individual projection files: {ROW_ID}_{country}_Projection.csv
+├── tables/          # Individual projection files: {ROW_ID}_{geography}_Projection.csv
 └── scores/          # Individual summary files: {ROW_ID}_Summary.csv
 ```
 
@@ -242,9 +242,9 @@ model/output/{run_name}/
    - Outputs: `model/output/{run_name}_{run_type}_compiled_summary.csv`
    - **Important**: Set `run_type` to `"selection"` or `"validation"` to indicate the evaluation window
 
-2. **`2_compile_time_series_tables.R`** - Compiles time series projections by country
-   - Reads all `{ROW_ID}_{country}_Projection.csv` files from `model/output/{run_name}/tables/`
-   - Combines projections by country and merges with observed data
+2. **`2_compile_time_series_tables.R`** - Compiles time series projections by geography
+   - Reads all `{ROW_ID}_{geography}_Projection.csv` files from `model/output/{run_name}/tables/`
+   - Combines projections by geography and merges with observed data
    - Outputs to `shiny_standalone/data/tables/{run_type}/` (where `run_type` is "selection" or "validation")
    - **Important**: Set `run_type` to match your compilation - determines output subdirectory
 
@@ -275,8 +275,8 @@ run_type <- "validation"
 
 ### Individual Model Outputs
 
-All projection files (`{ROW_ID}_{country}_Projection.csv`) contain:
-- **`ID`**: Geography code (`GEO_ID` value, typically ISO3)
+All projection files (`{ROW_ID}_{geography}_Projection.csv`) contain:
+- **`ID`**: Unique geography string identifier
 - **`ds`**: Date/timestamp  
 - **`y`**: Observed measles incidence (if available)
 - **`yhat1`**: Model-projected incidence
@@ -292,16 +292,7 @@ All summary files (`{ROW_ID}_Summary.csv`) contain:
 ### Compiled Outputs
 
 - **Compiled Summary**: Single CSV with all model performance metrics and metadata
-- **Compiled Time Series**: Country-level CSVs with all model projections for that country
-
-## Model Comparison Pipeline
-
-The `model_comparison_pipeline/` directory contains tools for evaluating and comparing model performance:
-
-- **`model_comparison_viz.Rmd`** - R Markdown document for generating model comparison visualizations
-- **`country_output/`** - Individual country-specific model outputs (e.g., NGA.csv, UKR.csv)
-- **`summary_output/`** - Aggregated summary tables (summaryTable.csv)
-- **Documentation** - Detailed pipeline documentation (PDF)
+- **Compiled Time Series**: Geography-level CSVs with all model projections for that geography
 
 ## Interactive Model Validation (`shiny_standalone/`)
 
@@ -319,7 +310,7 @@ The compiled outputs will be automatically placed in:
 - `shiny_standalone/data/tables/validation/` - Validation period time series
 
 ### Key Features
-- **Interactive Country Selection** - Choose from countries with ISO3 codes for detailed analysis
+- **Interactive Geography Selection** - Choose from geographies with unique string identifiers (e.g. ISO3 codes) for detailed analysis
 - **Model Performance Metrics** - View detailed performance statistics in interactive data tables
 - **Epidemiological Curve Visualization** - Compare observed vs predicted case counts over time
 - **Binary Outcome Analysis** - Visualize outbreak prediction accuracy using heatmaps
@@ -333,8 +324,8 @@ The compiled outputs will be automatically placed in:
   - Automatically loads compiled summaries (selection and/or validation)
   - Falls back to sample data if compiled summaries not found
 - **`data/`** - Compiled datasets for visualization
-  - **`tables/selection/`** - Selection period time series by country
-  - **`tables/validation/`** - Validation period time series by country
+  - **`tables/selection/`** - Selection period time series by geography
+  - **`tables/validation/`** - Validation period time series by geography
   - **`cutoff_date_by_country.csv`** - Cutoff dates for evaluation periods
   - **`sample_summaryTable.csv`** - Sample summary table (fallback)
 - **`www/`** - Static web assets (CSS, images, favicon)
