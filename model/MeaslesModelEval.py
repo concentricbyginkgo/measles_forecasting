@@ -67,7 +67,7 @@ minAcceptableTestMonths = 6
 defaultMissingVarResponse = 'drop country' #value may equal "drop country", "drop var", or "ignore"
 defaultProjectionMethod = 'AutoETS'
 defaultBinaryMetric = lambda x: x >= 2
-groupingVar = 'ISO3'
+groupingVar = 'GEO_ID'
 
 
 

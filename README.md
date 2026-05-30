@@ -66,7 +66,7 @@ install.packages(readLines("requirements-r.txt"))
 Ingestion must produce a **long-format** CSV that the Python loader can read (default: `model/input/processed_measles_model_data.csv`). Structural requirements, experiment-specific columns (`depVar`, `indepVars`), preprocessor alignment, and measles-specific coupling (for example `cases_1M` truncation in the loader) are documented in:
 
 - **[`data_ingestion_pipeline/MODEL_INPUT_SCHEMA.md`](data_ingestion_pipeline/MODEL_INPUT_SCHEMA.md)** — human-readable contract, **pooled (global-local) grouping and `selection` keys** (see §4), and new-pathogen checklist  
-- **[`data_ingestion_pipeline/schemas/model_input.schema.json`](data_ingestion_pipeline/schemas/model_input.schema.json)** — JSON Schema (required: `ISO3`, `date`; additional columns allowed)  
+- **[`data_ingestion_pipeline/schemas/model_input.schema.json`](data_ingestion_pipeline/schemas/model_input.schema.json)** — JSON Schema (required: `GEO_ID`, `date`; additional columns allowed)  
 - **[`model/input/example_minimal_model_input.csv`](model/input/example_minimal_model_input.csv)** — header-only example matching the canonical measles column set (no data rows)
 
 **Path alignment:** [`data_ingestion_pipeline/7_combine_all_datasets.R`](data_ingestion_pipeline/7_combine_all_datasets.R) writes `model_training_data.csv` at the repo root by default. Copy or symlink that file to `model/input/processed_measles_model_data.csv` (or change `MeaslesDataLoader.prepData` `defaultLoc`) before training.
@@ -276,7 +276,7 @@ run_type <- "validation"
 ### Individual Model Outputs
 
 All projection files (`{ROW_ID}_{country}_Projection.csv`) contain:
-- **`ID`**: Country ISO3 code
+- **`ID`**: Geography code (`GEO_ID` value, typically ISO3)
 - **`ds`**: Date/timestamp  
 - **`y`**: Observed measles incidence (if available)
 - **`yhat1`**: Model-projected incidence

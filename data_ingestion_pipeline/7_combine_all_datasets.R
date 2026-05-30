@@ -146,4 +146,6 @@ MeaslesDat[clusterDat, cluster_redrawn := i.cluster_redrawn, on = .(ISO3)]
 
 # Write the final combined dataset for model training
 # This file contains all predictors aligned with measles case data
+# Interim scripts 1-6 use ISO3; Python model-input contract uses GEO_ID at export
+setnames(MeaslesDat, "ISO3", "GEO_ID")
 fwrite(MeaslesDat, "model_training_data.csv")

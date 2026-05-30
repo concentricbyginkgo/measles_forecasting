@@ -9,19 +9,22 @@ library(lmerTest)
 working_dir <- "~/python_projects/epiflowml/" # updated if needed!
 setwd(working_dir)
 inputDat <- fread("./model/input/processed_measles_model_data.csv", na.strings = "")
+if (!("GEO_ID" %in% names(inputDat)) && "ISO3" %in% names(inputDat)) {
+  setnames(inputDat, "ISO3", "GEO_ID")
+}
 setnames(inputDat, "outbreak_20_cuml_per_M", "outbreak")
 inputDat[, date := as.Date(date)]
-inputDat[inputDat[outbreak == "yes", .N, by = .(ISO3)], months_with_outbreak := i.N, on = .(ISO3)]
+inputDat[inputDat[outbreak == "yes", .N, by = .(GEO_ID)], months_with_outbreak := i.N, on = .(GEO_ID)]
 inputDat[is.na(months_with_outbreak), months_with_outbreak := 0]
-inputDat[inputDat[outbreak == "yes", .N, by = .(ISO3, Year)][, .N, by = .(ISO3)], years_with_outbreak := i.N, on = .(ISO3)]
+inputDat[inputDat[outbreak == "yes", .N, by = .(GEO_ID, Year)][, .N, by = .(GEO_ID)], years_with_outbreak := i.N, on = .(GEO_ID)]
 inputDat[is.na(years_with_outbreak), years_with_outbreak := 0]
-outbreakDat <- unique(inputDat[, .(ISO3, months_with_outbreak, years_with_outbreak)])
+outbreakDat <- unique(inputDat[, .(GEO_ID, months_with_outbreak, years_with_outbreak)])
 inputDat[, outbreak := NULL]
 
 reportDat <- inputDat[years_with_outbreak > 0, ]
 
 # Prepare data for analysis
-reportDat[, ISO3 := as.factor(ISO3)]
+reportDat[, GEO_ID := as.factor(GEO_ID)]
 reportDat[outbreak_5_per_M == 1, outbreak := "yes"] 
 reportDat[outbreak_5_per_M == 0, outbreak := "no"]
 reportDat[, outbreak := as.factor(outbreak)]
@@ -52,9 +55,9 @@ results <- list()
 model_errors <- list()
 
 # Loop through each country
-for (country in unique(reportDat$ISO3)) {
+for (country in unique(reportDat$GEO_ID)) {
   # Subset data for this country
-  country_data <- reportDat[ISO3 == country]
+  country_data <- reportDat[GEO_ID == country]
   
   # Create empty vector to store significant predictors and errors
   sig_predictors <- c()
@@ -133,14 +136,14 @@ for (country in names(results)) {
 }
 # Create data frame for CSV output
 csv_results <- data.frame(
-  ISO3 = character(),
+  GEO_ID = character(),
   predictor = character(), 
   p_value = numeric(),
   stringsAsFactors = FALSE
 )
 
 # Split data by country
-split_data <- split(reportDat, reportDat$ISO3)
+split_data <- split(reportDat, reportDat$GEO_ID)
 
 # Iterate through countries and predictors to build results
 for (country in names(results)) {
@@ -161,7 +164,7 @@ for (country in names(results)) {
         
         # Add row to results
         csv_results <- rbind(csv_results, data.frame(
-          ISO3 = country,
+          GEO_ID = country,
           predictor = pred,
           p_value = p_val,
           stringsAsFactors = FALSE
@@ -173,7 +176,7 @@ for (country in names(results)) {
 
 
 csv_results <- data.table(csv_results)
-csv_results[, .N, by = .(ISO3)]# Write results to CSV
+csv_results[, .N, by = .(GEO_ID)]# Write results to CSV
 write.csv(csv_results, "univariate_country_results.csv", row.names = FALSE)
 
 # Print errors if any occurred

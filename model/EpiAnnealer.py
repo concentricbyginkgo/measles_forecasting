@@ -52,7 +52,7 @@ rawData = pd.read_csv('input/processed_measles_model_data.csv')
 usableColumns = set(rawData.columns)
 worldBankColumns = {column for column in usableColumns if len(column.split('.')[0]) == 2}
 
-ignoredColumns = {'ISO3','Year','Region','Country',
+ignoredColumns = {'GEO_ID','ISO3','Year','Region','Country',
                   'mnth','Month','cases','date',
                   'births','migrations','total_precip_mm_per_day','unicef_region',
                   'cases_1M','cluster'}

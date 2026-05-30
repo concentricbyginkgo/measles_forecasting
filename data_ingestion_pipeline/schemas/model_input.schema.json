@@ -2,14 +2,13 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "model_input.schema.json",
   "title": "EpiFlowML model input row (long-format CSV)",
-  "description": "One row of the ingested CSV consumed by MeaslesDataLoader.prepData. ISO3 and date are required for the loader. depVar and predictors are experiment-specific; additional columns use additionalProperties. For column semantics and preprocessor rules see data_ingestion_pipeline/MODEL_INPUT_SCHEMA.md and model/input/PreprocessorConfig.csv.",
+  "description": "One row of the ingested CSV consumed by MeaslesDataLoader.prepData. GEO_ID and date are required for the loader. depVar and predictors are experiment-specific; additional columns use additionalProperties. Script 7 renames ISO3 to GEO_ID at export; interim ingestion scripts keep ISO3. For column semantics and preprocessor rules see data_ingestion_pipeline/MODEL_INPUT_SCHEMA.md and model/input/PreprocessorConfig.csv.",
   "type": "object",
-  "required": ["ISO3", "date"],
+  "required": ["GEO_ID", "date"],
   "properties": {
-    "ISO3": {
+    "GEO_ID": {
       "type": "string",
-      "pattern": "^[A-Z]{3}$",
-      "description": "ISO 3166-1 alpha-3 country or geography code."
+      "description": "Geography key for grouping and filters (typically ISO 3166-1 alpha-3, e.g. NGA; may support other stable IDs in future)."
     },
     "date": {
       "type": "string",

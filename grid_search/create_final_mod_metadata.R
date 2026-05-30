@@ -6,8 +6,14 @@ test_output <- TRUE # TRUE for testing (prints first 10 rows), FALSE for full ou
 outfile_name <- "run_metadata.csv"
 out_path <- "~/python_projects/epiflowml/model/input/"
 best_pred_by_country <- fread("./grid_search/univariate_country_results.csv")
+if (!("GEO_ID" %in% names(best_pred_by_country)) && "ISO3" %in% names(best_pred_by_country)) {
+  setnames(best_pred_by_country, "ISO3", "GEO_ID")
+}
 
 correlated_vars <- fread("./grid_search/correlation_results.csv")
+if (!("GEO_ID" %in% names(correlated_vars)) && "ISO3" %in% names(correlated_vars)) {
+  setnames(correlated_vars, "ISO3", "GEO_ID")
+}
 correlated_vars <- correlated_vars[p_value<0.2 & correlation>0.7]
 
 # Create separate table for climate variables
@@ -50,7 +56,7 @@ has_correlated_predictors <- function(pred_combo, country, corr_data) {
   if(length(pred_combo) < 2) return(FALSE)
   for(i in 1:(length(pred_combo)-1)) {
     for(j in (i+1):length(pred_combo)) {
-      corr_pair <- corr_data[ISO3 == country & 
+      corr_pair <- corr_data[GEO_ID == country & 
                                ((predictor1 == pred_combo[i] & predictor2 == pred_combo[j]) |
                                   (predictor1 == pred_combo[j] & predictor2 == pred_combo[i]))]
       if(nrow(corr_pair) > 0) return(TRUE)
@@ -62,12 +68,12 @@ has_correlated_predictors <- function(pred_combo, country, corr_data) {
 # Create combinations for each country
 predictor_combinations <- data.table()
 
-for(country in unique(best_pred_by_country$ISO3)) {
+for(country in unique(best_pred_by_country$GEO_ID)) {
   # Get predictors for this country
-  country_preds <- unique(best_pred_by_country[ISO3 == country]$predictor)
+  country_preds <- unique(best_pred_by_country[GEO_ID == country]$predictor)
   
   # Get climate variables for this country
-  country_climate <- climate_by_country[ISO3 == country, predictor]
+  country_climate <- climate_by_country[GEO_ID == country, predictor]
   climate_string <- ifelse(length(country_climate) > 0, paste(country_climate, collapse = "|"), NA)
   
   # Generate all combinations of 1, 2, and 3 predictors
@@ -84,7 +90,7 @@ for(country in unique(best_pred_by_country$ISO3)) {
         list(
           predictor_combinations,
           data.table(
-            ISO3 = country,
+            GEO_ID = country,
             predictor = sapply(valid_combos, paste, collapse = "|"),
             environmentalArgs = climate_string
           )
@@ -104,7 +110,7 @@ models <- c("Random Forest",
 #"diverse")
 # Create all combinations of countries, predictor sets and models
 final_combinations <- CJ(
-  ISO3 = unique(predictor_combinations$ISO3),
+  GEO_ID = unique(predictor_combinations$GEO_ID),
   predictor = unique(predictor_combinations$predictor),
   model = models,
   Rep = 1:15
@@ -113,7 +119,7 @@ final_combinations <- CJ(
 # Only keep valid country-predictor combinations that exist in predictor_combinations
 final_combinations <- final_combinations[
   predictor_combinations, 
-  on = .(ISO3, predictor),
+  on = .(GEO_ID, predictor),
   nomatch = NULL
 ]
 final_combinations[, environmentalArgs := "mean_temp|mean_precip_mm_per_day"]
@@ -124,7 +130,7 @@ subset_strings <- predictor_strings[sapply(strsplit(predictor_strings, "\\|"), l
 
 # Create all combinations of clusters, predictor sets and models
 cluster_combinations <- CJ(
-  ISO3 = paste0("cluster:", 1:10),
+  GEO_ID = paste0("cluster:", 1:10),
   predictor = subset_strings,
   environmentalArgs = "mean_temp|mean_precip_mm_per_day",
   model = models,
@@ -141,8 +147,8 @@ out_combinations[, num_predictors := lengths(strsplit(predictor, "\\|"))]
 out_combinations[, environmentalArg := "{'mean_temp': 3, 'mean_precip_mm_per_day': 3}"]
 out_combinations
 # Generate MODEL_ID (using first 12 characters of a hash)
-out_combinations[, MODEL_ID := substr(digest(paste(ISO3, predictor, model), algo = "md5"), 1, 12), 
-                 by = .(ISO3, predictor, model)]
+out_combinations[, MODEL_ID := substr(digest(paste(GEO_ID, predictor, model), algo = "md5"), 1, 12), 
+                 by = .(GEO_ID, predictor, model)]
 out_combinations[, .N, by = .(MODEL_ID)][N!=15]
 # Add row numbers for unique model IDs
 out_combinations[, ROW_ID := .I]
@@ -150,8 +156,8 @@ out_combinations[, Seed := sample(1:.N*5, .N, replace = FALSE)]
 out_combinations[, .N, by = .(Seed)][N>1]
 
 # Reorder and select columns to match target format
-setnames(out_combinations, "ISO3", "geography")
-final_output <- out_combinations[, .(MODEL_ID, country, predictor = predictor_json, num_predictors, environmentalArg, model, Rep, ROW_ID, Seed)]
+setnames(out_combinations, "GEO_ID", "geography")
+final_output <- out_combinations[, .(MODEL_ID, geography, predictor = predictor_json, num_predictors, environmentalArg, model, Rep, ROW_ID, Seed)]
 final_output[, .N, by = .(MODEL_ID)]
 
 if(test_output) {

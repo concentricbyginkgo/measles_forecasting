@@ -9,7 +9,7 @@ The goal is to make it straightforward to plug in **other pathogens or data sour
 ## 1. Purpose and data flow
 
 1. **Ingestion** produces one long-format table: one row per geography per time period (monthly in the measles stack).
-2. **Python** loads that CSV (default path: [`model/input/processed_measles_model_data.csv`](../model/input/processed_measles_model_data.csv)), splits by `ISO3`, renames `date` → `ds`, and builds per-country curves.
+2. **Python** loads that CSV (default path: [`model/input/processed_measles_model_data.csv`](../model/input/processed_measles_model_data.csv)), splits by **`GEO_ID`**, renames `date` → `ds`, and builds per-country curves.
 3. **Preprocessor + model** operate on each curve: see [`MeaslesModelEval.prepCurve`](../model/MeaslesModelEval.py) and [`EpiPreprocessor.preprocessDf`](../model/EpiPreprocessor.py).
 
 For a visual boundary:
@@ -18,7 +18,7 @@ For a visual boundary:
 flowchart LR
   subgraph ingestion [Ingestion ETL]
     Raw[Raw sources]
-    Long[Long CSV ISO3 plus date plus vars]
+    Long[Long CSV GEO_ID plus date plus vars]
   end
   subgraph python_model [Python model]
     Loader[MeaslesDataLoader.prepData]
@@ -39,8 +39,8 @@ These must be present in the ingested CSV for the **current** loader and curve b
 
 | Column | Type / format | Role |
 |--------|----------------|------|
-| **`ISO3`** | String, ISO 3166-1 alpha-3 | Country (or geography) key; used for grouping, filters, and cutoffs. |
-| **`date`** | Parseable date (monthly `MS` recommended) | Timeline; renamed to **`ds`** inside Python. Rows should be sorted by date within each `ISO3`. |
+| **`GEO_ID`** | String | Geography key; used for grouping, filters, and curve identity. Values are typically ISO 3166-1 alpha-3 codes (e.g. `NGA`). Renamed from **`ISO3`** at export in [`7_combine_all_datasets.R`](7_combine_all_datasets.R). |
+| **`date`** | Parseable date (monthly `MS` recommended) | Timeline; renamed to **`ds`** inside Python. Rows should be sorted by date within each `GEO_ID`. |
 
 No other column is *universally* required at ingestion time for the loader itself; everything else depends on your experiment (dependent variable and predictors).
 
@@ -70,27 +70,27 @@ From [`prepCurve`](../model/MeaslesModelEval.py):
 
 ### 4.1 How countries enter the pool (`selection`)
 
-[`initModel`](../model/MeaslesModelEval.py) resolves which ISO3 codes to include from:
+[`initModel`](../model/MeaslesModelEval.py) resolves which geography codes to include from:
 
 ```text
 preppedCountries['filters'][selection]
 ```
 
-That `filters` dict is built in [`prepFilters`](../model/MeaslesDataLoader.py) when `prepData()` runs. Besides `'all'` (every country with a curve) and one key per ISO3 (e.g. `'NGA'`), the loader adds **compound keys** for any CSV column that satisfies **both**:
+That `filters` dict is built in [`prepFilters`](../model/MeaslesDataLoader.py) when `prepData()` runs. Besides `'all'` (every country with a curve) and one key per geography (e.g. `'NGA'`), the loader adds **compound keys** for any CSV column that satisfies **both**:
 
 1. **Between 2 and 11 unique values** in the full table (`df.nunique()`), and  
-2. **At most one distinct value per `ISO3`** (`df.groupby('ISO3').nunique().max() == 1` for that column).
+2. **At most one distinct value per `GEO_ID`** (`df.groupby('GEO_ID').nunique().max() == 1` for that column).
 
-For each qualifying column (commonly **`cluster`**) and each level `k`, a key **`'{column}:{k}'`** maps to the list of ISO3 codes that share that level. Example: `cluster:1` → all countries in cluster 1.
+For each qualifying column (commonly **`cluster`**) and each level `k`, a key **`'{column}:{k}'`** maps to the list of `GEO_ID` values that share that level. Example: `cluster:1` → all countries in cluster 1.
 
-**Ingestion implication:** To use pooled runs with **`selection='cluster:…'`** (or similar), the combined CSV must include a column such as **`cluster`** (or another stable per-country label) that meets the rules above. If no column qualifies, only `'all'` and per-ISO3 keys are available.
+**Ingestion implication:** To use pooled runs with **`selection='cluster:…'`** (or similar), the combined CSV must include a column such as **`cluster`** (or another stable per-country label) that meets the rules above. If no column qualifies, only `'all'` and per-`GEO_ID` keys are available.
 
 ### 4.2 Synthetic `ID` (not an ingested column)
 
 After per-country train windows are prepared, [`mergeCurves`](../model/MeaslesModelEval.py) concatenates each country’s future/training frame and sets:
 
 ```python
-countryCurve.loc[:, 'ID'] = country   # ISO3 string
+countryCurve.loc[:, 'ID'] = country   # GEO_ID string
 ```
 
 So **`ID` is assigned at runtime** from the country code; you do **not** need a column named `ID` in the ingested CSV. It is the grouping key for encoding (below).
@@ -106,7 +106,7 @@ When **`simObject.multipleCurves`** is true and the method is **not** `'NeuralPr
 | Layer | Requirement |
 |--------|----------------|
 | **Ingested data** | Same as §3 for every country in the pool: `depVar`, all `indepVars`, preprocessor coverage. |
-| **Selection** | A valid `selection` key (`'all'`, `'ISO3'`, or a generated `'column:value'` key). |
+| **Selection** | A valid `selection` key (`'all'`, a `GEO_ID` value, or a generated `'column:value'` key). |
 | **Preprocessor config** | Rows for all transformed predictors **plus** a row for your **exact** `method` string with `encode_onehot_on_ID`. |
 | **Across countries** | With default `missingVarResponse='drop country'`, every country must have every required predictor column; otherwise use `'drop var'` / `'ignore'` and accept intersection of variables (see [`pareIndepVars`](../model/MeaslesModelEval.py)). |
 
@@ -129,7 +129,7 @@ Here “global-local” is implemented **inside NeuralProphet** (shared trend, g
 
 | Model style | `multipleCurves` | Extra columns from ingestion | Config / code |
 |-------------|------------------|-------------------------------|---------------|
-| Single country | `False` | No extra grouping column unless you use filters | `selection` = ISO3 |
+| Single country | `False` | No extra grouping column unless you use filters | `selection` = geography code (e.g. `NGA`) |
 | Pooled sklearn | `True` | Optional **`cluster`** (or similar) for `selection='cluster:k'` | Method row + `encode_onehot_on_ID`; `ID` added in Python |
 | Pooled NeuralProphet lagged | `True` | Same as sklearn for **selection**; predictors as usual | `trend_global_local` / `season_global_local`; no ID one-hot |
 
@@ -173,7 +173,7 @@ These are only “required” if they appear in your **`indepVars`** or **`depVa
 
 ## 8. R script 7 vs Python default path
 
-[`7_combine_all_datasets.R`](7_combine_all_datasets.R) writes **`model_training_data.csv`** at the **repository root** by default. The Python loader expects **`model/input/processed_measles_model_data.csv`** by default.
+[`7_combine_all_datasets.R`](7_combine_all_datasets.R) merges interim datasets on **`ISO3`**, then renames **`ISO3` → `GEO_ID`** immediately before writing **`model_training_data.csv`** at the **repository root**. The Python loader expects **`model/input/processed_measles_model_data.csv`** by default (with column **`GEO_ID`**).
 
 **Action:** After running script 7, copy or symlink the combined CSV to the path your Python run uses, or change `defaultLoc` in `prepData()` to match your export.
 
@@ -183,19 +183,19 @@ These are only “required” if they appear in your **`indepVars`** or **`depVa
 
 **File:** [`model/input/cutoff_date_by_country.csv`](../model/input/cutoff_date_by_country.csv) (configurable in `prepData`).
 
-**Expected:** At least `ISO3` and a date column (default name **`cutoff_date`**). Used to define the test-window size per country. If the file is missing, cutoffs may fall back to `'not passed'` depending on `prepData` behavior.
+**Expected:** At least **`ISO3`** and a date column (default name **`cutoff_date`**). Cutoff files keep **`ISO3`**; keys are matched to curve **`GEO_ID`** values (same codes). If the file is missing, cutoffs may fall back to `'not passed'` depending on `prepData` behavior.
 
 ---
 
 ## 10. Machine-readable schema
 
-A JSON Schema draft-07 document with required `ISO3` and `date` is at [`schemas/model_input.schema.json`](schemas/model_input.schema.json). Additional predictor properties are intentionally open (`additionalProperties: true`) because studies differ.
+A JSON Schema draft-07 document with required **`GEO_ID`** and **`date`** is at [`schemas/model_input.schema.json`](schemas/model_input.schema.json). Additional predictor properties are intentionally open (`additionalProperties: true`) because studies differ.
 
 ---
 
 ## 11. Checklist: new pathogen or new dataset
 
-1. **Long table:** `ISO3` + `date` + one row per period per geography.  
+1. **Long table:** **`GEO_ID`** + `date` + one row per period per geography.  
 2. **Outcome:** Column for `depVar`; decide handling of **`cases_1M`** / `validityColumn` (§5).  
 3. **Predictors:** Columns match names in `indepVars` and in `PreprocessorConfig.csv` (add rows for new variables).  
 4. **Pooled runs:** If using `selection` like `cluster:k`, add a qualifying grouping column (§4.1); for sklearn pooled fits, ensure the **method** row exists with **`encode_onehot_on_ID`** (§4.3).  

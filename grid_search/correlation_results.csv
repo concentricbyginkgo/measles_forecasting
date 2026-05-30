@@ -1,4 +1,4 @@
-ISO3,predictor1,predictor2,correlation,p_value,error_message
+GEO_ID,predictor1,predictor2,correlation,p_value,error_message
 AFG,MCV1,mnths_since_outbreak_20_per_M,,,
 AFG,MCV2,mnths_since_outbreak_20_per_M,,,
 DZA,prop_prev_rolling_60_mnths_outbreak_5M,cases_1M_60z,,,

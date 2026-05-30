@@ -12,12 +12,31 @@ import pandas as pd
 import country_converter as coco
 import os
 import hashlib
+import warnings
 
 from sklearn.impute import KNNImputer
 from sklearn.preprocessing import StandardScaler
 
 
 validityColumn = 'cases_1M'
+GEO_ID_COL = 'GEO_ID'
+LEGACY_GEO_ID_COL = 'ISO3'
+
+
+def ensure_geo_id_column(df):
+    """Model input CSV uses GEO_ID (set at script 7 export); accept legacy ISO3 with warning."""
+    if GEO_ID_COL in df.columns:
+        return df
+    if LEGACY_GEO_ID_COL in df.columns:
+        warnings.warn(
+            f'Model input uses legacy column {LEGACY_GEO_ID_COL}; '
+            f're-run script 7 export or rename to {GEO_ID_COL}.',
+            stacklevel=2,
+        )
+        return df.rename(columns={LEGACY_GEO_ID_COL: GEO_ID_COL})
+    raise KeyError(
+        f'Model input CSV must contain {GEO_ID_COL} (export from 7_combine_all_datasets.R).'
+    )
 
 
 ##########################################
@@ -48,7 +67,7 @@ def prepFilters(df,validCountries):
     uniqueValKeys = set(totalUniqueValMatches[totalUniqueValMatches].index)
     
     # Identify columns in data set with no more than one unique value per country
-    onePerCountryMatches = pd.Series(df.groupby('ISO3').nunique().max())
+    onePerCountryMatches = pd.Series(df.groupby(GEO_ID_COL).nunique().max())
     onePerKeys = set(onePerCountryMatches[onePerCountryMatches == 1].index)
 
     # Select only keys matching both prior requirements
@@ -57,7 +76,7 @@ def prepFilters(df,validCountries):
     # Prepare the request:country list mapping dictionary
     quickFilters = {country:[country] for country in validCountries}
     for filterKey in quickFilterKeys:
-        grouped = dict(df.groupby(filterKey).ISO3.unique())
+        grouped = dict(df.groupby(filterKey)[GEO_ID_COL].unique())
         for groupKey,groupArray in grouped.items():
             if isinstance(groupKey, (int, float, complex)):
                 if groupKey == int(groupKey):
@@ -89,7 +108,7 @@ def prepData(defaultLoc = 'input/processed_measles_model_data.csv',
     """Loads currently available data"""
 
     # Load raw measles data
-    measlesData = verboseLoader(defaultLoc)
+    measlesData = ensure_geo_id_column(verboseLoader(defaultLoc))
     
     if useImputation:
         measlesData = imputeMissingByGroup(measlesData,
@@ -103,7 +122,7 @@ def prepData(defaultLoc = 'input/processed_measles_model_data.csv',
         trendsDf = verboseLoader(trendsLoc)
         rowUniques = trendsDf.apply(lambda row: row.nunique(), axis=1)
         trendsDf = trendsDf[rowUniques >= 10]
-        trendsDf.loc[:,'ISO3'] = coco.convert(names=trendsDf.alpha2, to='ISO3')
+        trendsDf.loc[:, GEO_ID_COL] = coco.convert(names=trendsDf.alpha2, to='ISO3')
         trendsDf = trendsDf.drop(['country',
                                   'alpha2',
                                   'rank',
@@ -111,9 +130,9 @@ def prepData(defaultLoc = 'input/processed_measles_model_data.csv',
                                   'translatable',
                                   'translation'],axis=1)
         
-        trendsDf = trendsDf.groupby(['ISO3']).mean().reset_index()
-        trendsDf = trendsDf.melt(id_vars='ISO3')
-        trendsDf.columns = ['ISO3','date','measles_kw_trend']
+        trendsDf = trendsDf.groupby([GEO_ID_COL]).mean().reset_index()
+        trendsDf = trendsDf.melt(id_vars=GEO_ID_COL)
+        trendsDf.columns = [GEO_ID_COL, 'date', 'measles_kw_trend']
         trendsDf.to_csv('CountryMeaslesMelt.csv',index=False)
         
         measlesData = measlesData.merge(trendsDf,how='left')
@@ -156,11 +175,11 @@ def prepData(defaultLoc = 'input/processed_measles_model_data.csv',
 
 def getRankedCountries(df):
     """Sorts countries by number of outbreaks, dropping countries with no outbreaks"""
-    nCountries = df['ISO3'].nunique()
+    nCountries = df[GEO_ID_COL].nunique()
     try:
-        listed = df.groupby(['ISO3']).num_outbreak_20_cuml_per_M.max().sort_values(ascending=False)
+        listed = df.groupby([GEO_ID_COL]).num_outbreak_20_cuml_per_M.max().sort_values(ascending=False)
     except:
-        listed = df.groupby(['ISO3']).cases_1M.max().sort_values(ascending=False)
+        listed = df.groupby([GEO_ID_COL]).cases_1M.max().sort_values(ascending=False)
     # listed = listed[listed > 0]
     
     print(f'{len(listed)}/{nCountries} included countries found with noted outbreaks.')
@@ -172,7 +191,7 @@ def getRankedCountries(df):
 def getCountryCurve(df,
                     country):
     """Prepares one country data set for fitting algorithm"""
-    df = df[df.ISO3 == country].copy(deep=True)
+    df = df[df[GEO_ID_COL] == country].copy(deep=True)
     df.date = pd.to_datetime(df.date)
     df = df.sort_values(by='date',ascending=True)
     df = df.reset_index()

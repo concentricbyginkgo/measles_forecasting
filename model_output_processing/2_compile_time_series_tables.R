@@ -44,8 +44,11 @@ if (!file.exists(obs_file)) {
   stop(paste("Error: Observed data file not found:", obs_file))
 }
 obs_dat <- fread(obs_file)
-if (!"date" %in% names(obs_dat) || !"ISO3" %in% names(obs_dat) || !"cases_1M" %in% names(obs_dat)) {
-  stop("Error: Observed data file missing required columns: date, ISO3, cases_1M")
+if (!"GEO_ID" %in% names(obs_dat) && "ISO3" %in% names(obs_dat)) {
+  setnames(obs_dat, "ISO3", "GEO_ID")
+}
+if (!"date" %in% names(obs_dat) || !"GEO_ID" %in% names(obs_dat) || !"cases_1M" %in% names(obs_dat)) {
+  stop("Error: Observed data file missing required columns: date, GEO_ID, cases_1M")
 }
 obs_dat[, date := as.Date(date)]
 
@@ -155,7 +158,7 @@ read_tables <- function(summ_table, ROW, country){
     
     # Merge with observed data
     if (nrow(obs_dat) > 0) {
-      tables[obs_dat, obs_y := i.cases_1M, on = .(ID = ISO3, ds = date)]
+      tables[obs_dat, obs_y := i.cases_1M, on = .(ID = GEO_ID, ds = date)]
     } else {
       tables[, obs_y := NA_real_]
     }
