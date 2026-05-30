@@ -86,6 +86,9 @@ country_list <- c(country_list)
 
 # Load cutoff dates for model selection and validation periods
 cutoff_dat <- fread("data/cutoff_date_by_country.csv")
+if (!("GEO_ID" %in% names(cutoff_dat)) && "ISO3" %in% names(cutoff_dat)) {
+  setnames(cutoff_dat, "ISO3", "GEO_ID")
+}
 cutoff_dat[, v_cutoff_date := as.Date(cutoff_date)]
 cutoff_dat[, v_end_date := lubridate::add_with_rollback(v_cutoff_date, months(9))]
 cutoff_dat[, s_cutoff_date := as.Date(selection_cutoff_date)]
@@ -160,8 +163,8 @@ get_plot_dat <-function(summ_dt, iso3, col_name, n = NULL, cutoff_dat, by_config
   if ("model" %in% names(out_summ)) {
     s_out_tables[out_summ, model := i.model, on = .(ID, ROW_ID = ROW_ID)]
   }
-  s_out_tables[cutoff_dat, cutoff_date := i.s_cutoff_date, on = .(ID = ISO3)]
-  s_out_tables[cutoff_dat, end_date := i.s_end_date, on = .(ID = ISO3)]
+  s_out_tables[cutoff_dat, cutoff_date := i.s_cutoff_date, on = .(ID = GEO_ID)]
+  s_out_tables[cutoff_dat, end_date := i.s_end_date, on = .(ID = GEO_ID)]
   s_out_tables[, run_period := "selection"]
   
   # Process validation period data if available
@@ -183,8 +186,8 @@ get_plot_dat <-function(summ_dt, iso3, col_name, n = NULL, cutoff_dat, by_config
     if ("model" %in% names(out_summ)) {
       v_out_tables[out_summ, model := i.model, on = .(ID, MODEL_ID = MODEL_ID)]
     }
-    v_out_tables[cutoff_dat, cutoff_date := i.v_cutoff_date, on = .(ID = ISO3)]
-    v_out_tables[cutoff_dat, end_date := i.v_end_date, on = .(ID = ISO3)]
+    v_out_tables[cutoff_dat, cutoff_date := i.v_cutoff_date, on = .(ID = GEO_ID)]
+    v_out_tables[cutoff_dat, end_date := i.v_end_date, on = .(ID = GEO_ID)]
     v_out_tables[, run_period := "validation"]
     
     # Combine selection and validation data

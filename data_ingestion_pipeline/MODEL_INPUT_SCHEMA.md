@@ -183,7 +183,7 @@ These are only “required” if they appear in your **`indepVars`** or **`depVa
 
 **File:** [`model/input/cutoff_date_by_country.csv`](../model/input/cutoff_date_by_country.csv) (configurable in `prepData`).
 
-**Expected:** At least **`ISO3`** and a date column (default name **`cutoff_date`**). Cutoff files keep **`ISO3`**; keys are matched to curve **`GEO_ID`** values (same codes). If the file is missing, cutoffs may fall back to `'not passed'` depending on `prepData` behavior.
+**Expected:** **`GEO_ID`** (or legacy **`ISO3`**) and a date column (default name **`cutoff_date`**). Keys match curve **`GEO_ID`** values (same codes, e.g. `NGA`). If the file is missing, cutoffs may fall back to `'not passed'` depending on `prepData` behavior.
 
 ---
 

@@ -1,4 +1,4 @@
-ISO3,Country,selection_cutoff_date,cutoff_date
+GEO_ID,Country,selection_cutoff_date,cutoff_date
 AFG,Afghanistan,2023-10-01,2024-10-01
 AGO,Angola,2023-08-01,2024-08-01
 ALB,Albania,2019-10-01,2020-10-01

@@ -1,4 +1,4 @@
-ISO3,Country,Region,cluster,cluster_region,cluster_redraw
+GEO_ID,Country,Region,cluster,cluster_region,cluster_redraw
 AGO,Angola,AFR,1,1,8
 BEN,Benin,AFR,1,1,7
 BDI,Burundi,AFR,1,1,7

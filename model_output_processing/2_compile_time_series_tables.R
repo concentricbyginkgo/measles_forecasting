@@ -56,11 +56,14 @@ obs_dat[, date := as.Date(date)]
 tts_file <- paste0(local_dir, "input/final_model_validation_cutoffs.csv")
 if (!file.exists(tts_file)) {
   warning(paste("Warning: TTS cutoff file not found:", tts_file, "- proceeding without cutoff dates"))
-  tts_dat <- data.table(ISO3 = character(), cutoff_date = as.Date(character()), end_date = as.Date(character()))
+  tts_dat <- data.table(GEO_ID = character(), cutoff_date = as.Date(character()), end_date = as.Date(character()))
 } else {
   tts_dat <- fread(tts_file)
-  if (!"cutoff_date" %in% names(tts_dat) || !"ISO3" %in% names(tts_dat)) {
-    stop("Error: TTS data file missing required columns: cutoff_date, ISO3")
+  if (!"GEO_ID" %in% names(tts_dat) && "ISO3" %in% names(tts_dat)) {
+    setnames(tts_dat, "ISO3", "GEO_ID")
+  }
+  if (!"cutoff_date" %in% names(tts_dat) || !"GEO_ID" %in% names(tts_dat)) {
+    stop("Error: TTS data file missing required columns: cutoff_date, GEO_ID")
   }
   tts_dat[, cutoff_date := as.Date(cutoff_date)]
   tts_dat[, end_date := lubridate::add_with_rollback(cutoff_date, months(9))]
@@ -258,9 +261,9 @@ make_country_tables <- function(iso3,
     message(paste("Successfully wrote table for", iso3, "to", run_type, "directory"))
     
     # Merge with TTS cutoff dates if available
-    if (nrow(tts_dat) > 0 && "ISO3" %in% names(tts_dat)) {
+    if (nrow(tts_dat) > 0 && "GEO_ID" %in% names(tts_dat)) {
       iso3_tables[tts_dat, `:=`(cutoff_date = i.cutoff_date,
-                                end_date = i.end_date), on = .(ID = ISO3)]
+                                end_date = i.end_date), on = .(ID = GEO_ID)]
     }
     
     return(iso3_tables)

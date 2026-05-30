@@ -143,11 +143,11 @@ def prepData(defaultLoc = 'input/processed_measles_model_data.csv',
 
     # Load cutoffs data
     try:
-        cutoffsDf = verboseLoader(cutoffsLoc).dropna()
+        cutoffsDf = ensure_geo_id_column(verboseLoader(cutoffsLoc).dropna())
         cutoffsDf[cutoffsCol] = pd.to_datetime(cutoffsDf[cutoffsCol],
                                                format='mixed',
                                                dayfirst=False)
-        cutoffs = {row['ISO3']:row[cutoffsCol] for index, row in cutoffsDf.iterrows()}
+        cutoffs = {row[GEO_ID_COL]: row[cutoffsCol] for index, row in cutoffsDf.iterrows()}
     except:
         print("No cutoff dates file found, continuing with passed int cutoff method")
         cutoffs = dict()

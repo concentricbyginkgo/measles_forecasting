@@ -136,9 +136,15 @@ MeaslesDat[, mnths_since_SIA := ifelse(sia_grp == 1 & all(SIA_status == "no"), N
 # =============================================================================
 
 clusterDat <- fread("data_ingestion_pipeline/provided_data/clusterDat.csv", na.strings = "")
-MeaslesDat[clusterDat, cluster := i.cluster, on = .(ISO3)]
-MeaslesDat[clusterDat, cluster_region := i.cluster_region, on = .(ISO3)]
-MeaslesDat[clusterDat, cluster_redrawn := i.cluster_redrawn, on = .(ISO3)]
+if (!("GEO_ID" %in% names(clusterDat)) && "ISO3" %in% names(clusterDat)) {
+  setnames(clusterDat, "ISO3", "GEO_ID")
+}
+if (!("GEO_ID" %in% names(clusterDat))) {
+  stop("clusterDat.csv must contain GEO_ID or ISO3 column")
+}
+MeaslesDat[clusterDat, cluster := i.cluster, on = .(ISO3 = GEO_ID)]
+MeaslesDat[clusterDat, cluster_region := i.cluster_region, on = .(ISO3 = GEO_ID)]
+MeaslesDat[clusterDat, cluster_redrawn := i.cluster_redrawn, on = .(ISO3 = GEO_ID)]
 
 # =============================================================================
 # EXPORT FINAL COMBINED DATASET
