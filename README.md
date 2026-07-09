@@ -142,7 +142,7 @@ The repository includes several Python modules and Jupyter notebooks:
 #### Core Modules
 - **`MeaslesDataLoader.py`** - Data loading and preprocessing
 - **`MeaslesModelEval.py`** - Model evaluation and cross-validation  
-- **`EpiPreprocessor.py`** - Epidemiological data preprocessing
+- **`EpiPreprocessor.py`** - Epidemiological data preprocessing (supported method names: [`model/PREPROCESSOR_METHODS.md`](model/PREPROCESSOR_METHODS.md); config: [`model/input/PreprocessorConfig.csv`](model/input/PreprocessorConfig.csv))
 - **`fitOne.py`** - Individual model fitting functions
 - **`EpiAnnealer.py`** - Advanced optimization and hyperparameter tuning
 - **`ModelSweeps.py`** - Mass model comparison using multiple ML algorithms

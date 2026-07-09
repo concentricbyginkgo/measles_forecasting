@@ -60,7 +60,7 @@ From [`prepCurve`](../model/MeaslesModelEval.py):
 3. If you use per-country cutoffs in [`model/input/cutoff_date_by_country.csv`](../model/input/cutoff_date_by_country.csv), the number of rows **on or after** the cutoff must be at least **`minAcceptableTestMonths` (6)** or `setCutoffSize` raises.
 4. Each predictor in **`indepVars`** must appear as a column with **at least one non-null** value for that country, or it is dropped for that curve. Across countries, missing columns are handled via `missingVarResponse` (`drop country`, `drop var`, or `ignore`) in [`pareIndepVars`](../model/MeaslesModelEval.py).
 
-**Preprocessor alignment:** Any column that passes into `preprocessDf` should have a matching row in [`model/input/PreprocessorConfig.csv`](../model/input/PreprocessorConfig.csv) (or the Google Sheet URL your run uses). Ingestion should use those **exact** column names, or you must rename before writing the model CSV. Human-readable descriptions live in [`model/input/input_variable_description.csv`](../model/input/input_variable_description.csv).
+**Preprocessor alignment:** Any column that passes into `preprocessDf` should have a matching row in [`model/input/PreprocessorConfig.csv`](../model/input/PreprocessorConfig.csv) (or the Google Sheet URL your run uses). Ingestion should use those **exact** column names, or you must rename before writing the model CSV. Supported `Methods` tokens are listed in [`model/PREPROCESSOR_METHODS.md`](../model/PREPROCESSOR_METHODS.md). Human-readable descriptions live in [`model/input/input_variable_description.csv`](../model/input/input_variable_description.csv).
 
 ---
 
